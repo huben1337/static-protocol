@@ -1,0 +1,15 @@
+{
+  "name": "static-protocol",
+  "version": "1.0.0",
+  "description": "",
+  "main": "dist/src/StaticProtocol",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@types/node": "^20.11.27",
+    "@types/typescript": "^2.0.0"
+  }
+}
