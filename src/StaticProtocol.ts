@@ -1,3 +1,5 @@
+import { REPLCommand } from "repl"
+
 const INT_TYPES = {
     'uint8': 1,
     'int8': -1,
@@ -42,6 +44,7 @@ type DataDefintion = {
 type Defintion = {
     head?: DataDefintion
     data: DataDefintion
+    allocateNew?: boolean
 }
 
 type EnumType<T extends EnumDefintion> = {
@@ -58,7 +61,6 @@ type DefinedType<D extends DataDefintion, F extends keyof D> = D[F] extends keyo
         } : never
     )
 )
-
 
 type ProtoObject<T extends Defintion> = (
     T['head'] extends DataDefintion ? {
@@ -111,7 +113,7 @@ class Code {
     }
 
     compile () {
-        return eval(`(${this.toString()})`)
+        return eval(`(() => { ${this.toString()} })`)()
     }
 }
 
@@ -242,6 +244,7 @@ class StaticProtocol<T extends Defintion> {
                                 varName,
                                 size
                             })
+                            break
                         }
                         case INTERNAL_TYPES.VARCHAR_SHORT: {
                             sizeCalc.push(`${varName}.length`)
@@ -300,8 +303,9 @@ class StaticProtocol<T extends Defintion> {
         }
         processDef(definition.data, args)
         const objTemplate = getObjectTemplate(args.args)
-        const encodeCode = new Code(`({${objTemplate}}) => {`)
-        const decodeCode = new Code('(buffer) => {')
+        const encodeCode = new Code(`return (({${objTemplate}}) => {`)
+
+        const decodeCode = new Code('return ((buffer) => {')
         encodeCode.indent++
         decodeCode.indent++
 
@@ -364,7 +368,12 @@ class StaticProtocol<T extends Defintion> {
             encodeCode.addLine('const buffer = Buffer.alloc(bufferLength)')
 
         } else {
-            encodeCode.addLine(`const buffer = Buffer.alloc(${bufferSize})`)
+            if (varcharFields.length > 0 || definition.allocateNew) {
+                encodeCode.addLine(`const buffer = Buffer.alloc(${bufferSize})`)
+            } else {
+                
+                encodeCode.insertLine(`const buffer = Buffer.alloc(${bufferSize})`, 0)
+            }  
         }
         byteFields.forEach((varName) => {
             encodeCode.addLine(`buffer[${bufferOffset}] = ${varName}`)
@@ -388,7 +397,7 @@ class StaticProtocol<T extends Defintion> {
             packedBools.forEach((varName, index) => decodeCode.addLine(`const ${varName} = !!(buffer[${bufferOffset}] >> ${index} & 1)`))
             bufferOffset++
         }
-        if (varcharFields.length > 0) {
+        if (varcharFields.length > 0 || enums.length > 0) {
             let tempOffset = bufferOffset
             for (let i = 0; i < varcharFields.length - (enums.length === 0 ? 1 : 0); i++) {
                 const { varName, long } = varcharFields[i];
@@ -401,115 +410,104 @@ class StaticProtocol<T extends Defintion> {
                 } 
                 
             }
-            if (varcharFields.length > 1 || enums.length > 0) {
-                encodeCode.addLine(`let offset = ${bufferOffset}`)
-                decodeCode.addLine(`let offset = ${bufferOffset}`)
-                for (let i = 0; i < varcharFields.length; i++) {
-                    const { varName, long } = varcharFields[i];
-                    encodeCode.addLine(`buffer.write(${varName}, offset)`)
-                    encodeCode.addLine(`offset += ${varName}.length`)
-                    if (long) {
-                        decodeCode.addLine(`const ${varName} = buffer.toString('utf8', offset, offset += buffer.readUint16LE(${tempOffset}))`)
-                        tempOffset += 2
-                    } else {
-                        decodeCode.addLine(`const ${varName} = buffer.toString('utf8', offset, offset += buffer[${tempOffset}])`)
-                        tempOffset++
-                    }
-                    
+            encodeCode.addLine(`let offset = ${bufferOffset}`)
+            decodeCode.addLine(`let offset = ${bufferOffset}`)
+            for (let i = 0; i < varcharFields.length; i++) {
+                const { varName, long } = varcharFields[i];
+                encodeCode.addLine(`buffer.write(${varName}, offset)`)
+                encodeCode.addLine(`offset += ${varName}.length`)
+                if (long) {
+                    decodeCode.addLine(`const ${varName} = buffer.toString('utf8', offset, offset += buffer.readUint16LE(${tempOffset}))`)
+                    tempOffset += 2
+                } else {
+                    decodeCode.addLine(`const ${varName} = buffer.toString('utf8', offset, offset += buffer[${tempOffset}])`)
+                    tempOffset++
                 }
-                // const { varName } = varcharFields[varcharFields.length - 1]
-                // encodeCode.addLine(`buffer.write(${varName}, offset)`)
-                // decodeCode.addLine(`const ${varName} = buffer.toString('utf8', offset)`)
-                if (enums.length > 0) {
-                    enums.forEach(({ valueName }) => {
-                        decodeCode.addLine(`let ${valueName}`)
-                    })
-                    enums.forEach(({ idName, valueName, cases }) => {
-                        encodeCode.addLine(`buffer[offset++] = ${idName}`)
-                        // encodeCode.addLine('console.log(offset)')
-                        encodeCode.addLine(`switch (${idName}) {`)
-                        encodeCode.indent++
-                        decodeCode.addLine(`const ${idName} = buffer[offset++]`)
-                        decodeCode.addLine(`switch (${idName}) {`)
-                        decodeCode.indent++
-                        cases.forEach(({ id, type, size}) => {
-                            encodeCode.addLine(`case ${id}: {`)
-                            encodeCode.indent++
-                            decodeCode.addLine(`case ${id}: {`)
-                            decodeCode.indent++
-                            switch (type) {
-                                case INTERNAL_TYPES.INT: {
-                                    if (size === 1 || size === -1) {
-                                        encodeCode.addLine(`buffer[offset++] = ${valueName}`)
-                                        decodeCode.addLine(`${valueName} = buffer[offset++]`)
-                                    } else {
-                                        const methodType = intMethodFromSize(size)
-                                        encodeCode.addLine(`buffer.write${methodType}(${valueName}, offset)`)
-                                        encodeCode.addLine(`offset += ${Math.abs(size)}`)
-                                        decodeCode.addLine(`${valueName} = buffer.read${methodType}(offset)`)
-                                        decodeCode.addLine(`offset += ${Math.abs(size)}`)
-                                    }
-                                    break
-                                }
-                                case INTERNAL_TYPES.BOOL: {
-                                    encodeCode.addLine(`buffer[offset++] = ${valueName}`)
-                                    decodeCode.addLine(`${valueName} = !!buffer[offset++]`)
-                                    break
-                                }
-                                case INTERNAL_TYPES.CHAR: {
-                                    encodeCode.addLine(`buffer.write(${valueName}, offset)`)
-                                    encodeCode.addLine(`offset += ${size}`)
-                                    decodeCode.addLine(`${valueName} = buffer.toString('utf8', offset, offset += ${size})`)
-                                    break
-                                }
-                                case INTERNAL_TYPES.VARCHAR_SHORT: {
-                                    encodeCode.addLine(`buffer[offset++] = ${valueName}.length`)
-                                    encodeCode.addLine(`buffer.write(${valueName}, offset)`)
-                                    encodeCode.addLine(`offset += ${valueName}.length`)
-
-                                    decodeCode.addLine(`${valueName} = buffer.toString('utf8', offset + 1, offset += 1 + buffer[offset])`)
-
-                                    break
-                                }
-                                case INTERNAL_TYPES.VARCHAR_LONG: {
-                                    encodeCode.addLine(`buffer.writeUint16LE(${valueName}.length, offset)`)
-                                    encodeCode.addLine(`offset += 2`)
-                                    encodeCode.addLine(`buffer.write(${valueName}, offset)`)
-                                    encodeCode.addLine(`offset += ${valueName}.length`)
-
-                                    decodeCode.addLine(`${valueName} = buffer.toString('utf8', offset + 2, offset += 2 + buffer.readUint16LE(offset))`)
-                                    break
-                                }
-                            }
-                            encodeCode.addLine('break')
-                            encodeCode.indent--
-                            encodeCode.addLine('}\n')
-
-
-                            decodeCode.addLine('break')
-                            decodeCode.indent--
-                            decodeCode.addLine('}\n')
-                        })
-                        encodeCode.indent--
-                        encodeCode.addLine('}')
-                        decodeCode.indent--
-                        decodeCode.addLine('}')
-                    })
-                    
-                }
-            } else {
-                const { varName } = varcharFields[varcharFields.length - 1]
-                encodeCode.addLine(`buffer.write(${varName}, ${bufferOffset})`)
-                decodeCode.addLine(`const ${varName} = buffer.toString('utf8', ${bufferOffset})`)
+                
             }
+            enums.forEach(({ valueName }) => {
+                decodeCode.addLine(`let ${valueName}`)
+            })
+            enums.forEach(({ idName, valueName, cases }) => {
+                encodeCode.addLine(`buffer[offset++] = ${idName}`)
+                // encodeCode.addLine('console.log(offset)')
+                encodeCode.addLine(`switch (${idName}) {`)
+                encodeCode.indent++
+                decodeCode.addLine(`const ${idName} = buffer[offset++]`)
+                decodeCode.addLine(`switch (${idName}) {`)
+                decodeCode.indent++
+                cases.forEach(({ id, type, size}) => {
+                    encodeCode.addLine(`case ${id}: {`)
+                    encodeCode.indent++
+                    decodeCode.addLine(`case ${id}: {`)
+                    decodeCode.indent++
+                    switch (type) {
+                        case INTERNAL_TYPES.INT: {
+                            if (size === 1 || size === -1) {
+                                encodeCode.addLine(`buffer[offset++] = ${valueName}`)
+                                decodeCode.addLine(`${valueName} = buffer[offset++]`)
+                            } else {
+                                const methodType = intMethodFromSize(size)
+                                encodeCode.addLine(`buffer.write${methodType}(${valueName}, offset)`)
+                                encodeCode.addLine(`offset += ${Math.abs(size)}`)
+                                decodeCode.addLine(`${valueName} = buffer.read${methodType}(offset)`)
+                                decodeCode.addLine(`offset += ${Math.abs(size)}`)
+                            }
+                            break
+                        }
+                        case INTERNAL_TYPES.BOOL: {
+                            encodeCode.addLine(`buffer[offset++] = ${valueName}`)
+                            decodeCode.addLine(`${valueName} = !!buffer[offset++]`)
+                            break
+                        }
+                        case INTERNAL_TYPES.CHAR: {
+                            encodeCode.addLine(`buffer.write(${valueName}, offset)`)
+                            encodeCode.addLine(`offset += ${size}`)
+                            decodeCode.addLine(`${valueName} = buffer.toString('utf8', offset, offset += ${size})`)
+                            break
+                        }
+                        case INTERNAL_TYPES.VARCHAR_SHORT: {
+                            encodeCode.addLine(`buffer[offset++] = ${valueName}.length`)
+                            encodeCode.addLine(`buffer.write(${valueName}, offset)`)
+                            encodeCode.addLine(`offset += ${valueName}.length`)
+
+                            decodeCode.addLine(`${valueName} = buffer.toString('utf8', offset + 1, offset += 1 + buffer[offset])`)
+
+                            break
+                        }
+                        case INTERNAL_TYPES.VARCHAR_LONG: {
+                            encodeCode.addLine(`buffer.writeUint16LE(${valueName}.length, offset)`)
+                            encodeCode.addLine(`offset += 2`)
+                            encodeCode.addLine(`buffer.write(${valueName}, offset)`)
+                            encodeCode.addLine(`offset += ${valueName}.length`)
+
+                            decodeCode.addLine(`${valueName} = buffer.toString('utf8', offset + 2, offset += 2 + buffer.readUint16LE(offset))`)
+                            break
+                        }
+                    }
+                    encodeCode.addLine('break')
+                    encodeCode.indent--
+                    encodeCode.addLine('}\n')
+
+
+                    decodeCode.addLine('break')
+                    decodeCode.indent--
+                    decodeCode.addLine('}\n')
+                })
+                encodeCode.indent--
+                encodeCode.addLine('}')
+                decodeCode.indent--
+                decodeCode.addLine('}')
+            })
             
         }
         encodeCode.addLine('return buffer')
         encodeCode.indent--
-        encodeCode.addLine('}')
+        encodeCode.addLine('})')
+
         decodeCode.addLine(`return {${objTemplate}}`)
         decodeCode.indent--
-        decodeCode.addLine('}')
+        decodeCode.addLine('})')
 
         // console.log(encodeCode.toString())
         // console.log(decodeCode.toString())
@@ -518,9 +516,15 @@ class StaticProtocol<T extends Defintion> {
         this.decode = decodeCode.compile()
     }
 
-    encode: (data: ProtoObject<T>) => Buffer
+    encode: T['allocateNew'] extends true ? EncodeFunction<T> : EncodeFunctionNoAlloc<T>
 
-    decode: (buffer: Buffer) => ProtoObject<T>
+    decode: DecodeFunction<T>
 }
+
+type EncodeFunction<T extends Defintion> = (data: ProtoObject<T>) => Buffer
+import ReadonlyBuffer from './ReadonlyBuffer'
+type EncodeFunctionNoAlloc<T extends Defintion> = (data: ProtoObject<T>) => ReadonlyBuffer
+
+type DecodeFunction<T extends Defintion> = (buffer: Buffer) => ProtoObject<T>
 
 export { StaticProtocol, Defintion }
