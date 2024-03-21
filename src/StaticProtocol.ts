@@ -20,11 +20,11 @@ type IntTypes = {
     int16: number
     uint32: number
     int32: number
-    uint64: number
-    int64: number
+    uint64: bigint
+    int64: bigint
 }
 
-type DataTypes  = {
+type DataTypes = {
     [x: `char:${number}`]: string
     [x: `varchar:${number}`]: string
     varchar: string
@@ -47,15 +47,17 @@ type Defintion = {
     allocateNew?: boolean
 }
 
-type EnumType<T extends EnumDefintion> = {
-    [key in keyof T]: key extends number ? {
+type EnumType<T extends EnumDefintion> = ValueType<{
+    [key in keyof T]: T[key] extends ValueType<EnumDefintion> ? {
         id: key
         value: DataTypes[T[key]]
     } : never
-}
+}>
 
 type DefinedType<D extends DataDefintion, F extends keyof D> = D[F] extends keyof DataTypes ? DataTypes[D[F]] : (
-    D[F] extends EnumDefintion ? ValueType<EnumType<D[F]>> : (
+    keyof D[F] extends keyof EnumDefintion ? (
+        D[F] extends EnumDefintion ? EnumType<D[F]> : never
+    ) : (
         D[F] extends DataDefintion ? {
             [key in keyof D[F]]: DefinedType<D[F], key>
         } : never
@@ -113,6 +115,7 @@ class Code {
     }
 
     compile () {
+        console.log(this.toString())
         return eval(`(() => { ${this.toString()} })`)()
     }
 }
