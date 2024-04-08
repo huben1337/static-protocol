@@ -1,30 +1,19 @@
-import { StaticEndpoint, Defintion } from "./StaticEndpoint"
+import { StaticEndpoint, Defintion } from './StaticEndpoint.js'
 
-const RAW_PROTOCOL = Symbol('RAW')
 type ProtocolDefintion = {
     [endpoint: string]: Defintion
-    [RAW_PROTOCOL]?: boolean
 }
 
-const CHANNELS_KEY = Symbol('channels')
+type StaticProtocolType <T extends ProtocolDefintion, R, C extends boolean> = R extends true ? {
+    [name in keyof T]: StaticEndpoint<T[name], C>
+} : {
+    [name in keyof T]: StaticEndpoint<T[name] & { channel: number }, C>
+}
 
-type StaticProtocolT <T extends ProtocolDefintion> = T[typeof RAW_PROTOCOL] extends true ? ({
-    [name in keyof T]: name extends string ? StaticEndpoint<T[name]> : T[name]
-}) : ({
-    [name in keyof T]: name extends string ? StaticEndpoint<T[name] & { channel: number }> : T[name]
-} & {
-    [CHANNELS_KEY]: {
-        [key in keyof T]: T[key]['channel'] extends number ? T[key]['channel'] : number
-    }
-})
-
-function StaticProtocol <T extends ProtocolDefintion> (definition: T): StaticProtocolT<T> {
-    if (definition[RAW_PROTOCOL]) {
-        const mapped = Object.entries(definition).map(([name, def]) => [name, new StaticEndpoint<typeof def>(def)])
-        const endpoints = Object.fromEntries(mapped)
-        return Object.assign({
-            [RAW_PROTOCOL]: true
-        }, endpoints)
+function StaticProtocol <T extends ProtocolDefintion, R extends boolean, C extends boolean> (definition: T, raw: R, noValidator: C): StaticProtocolType<T, R, C> {
+    if (raw) {
+        const mapped = Object.entries(definition).map(([name, def]) => [name, new StaticEndpoint(def, noValidator)])
+        return Object.fromEntries(mapped)
     } else {
         const usedChannels = new Set<number>()
         let channelId = 0
@@ -39,17 +28,10 @@ function StaticProtocol <T extends ProtocolDefintion> (definition: T): StaticPro
                 usedChannels.add(channelId)
                 def.channel = channelId
             }
-            return [name, new StaticEndpoint<typeof def>(def)]
+            return [name, new StaticEndpoint(def, noValidator)]
         })
-        const endpoints = Object.fromEntries(mapped)
-        return Object.assign({
-            [RAW_PROTOCOL]: false,
-            [CHANNELS_KEY]: Object.fromEntries(entries.map(([name, def]) => [name, def.channel]))
-            // channelOf (buf: Buffer) {
-            //     return buf[0]
-            // }
-        }, endpoints)
+        return Object.fromEntries(mapped)
     }
 }
 
-export { StaticProtocol, ProtocolDefintion, RAW_PROTOCOL, CHANNELS_KEY, StaticProtocolT }
+export { StaticProtocol, ProtocolDefintion, StaticProtocolType }
