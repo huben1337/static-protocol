@@ -331,7 +331,7 @@ const processDef = (def : DataDefintion, parent: Args, defInfo: DefinitionInfo) 
                 const idName = defInfo.getVarName()
                 const valueName = defInfo.getVarName()
                 parent.args.push(`${name}: {id: ${idName}, value: ${valueName}}`)
-                console.log(cases)
+                // console.log(cases)
                 defInfo.fields.enum.push({
                     idName,
                     valueName,

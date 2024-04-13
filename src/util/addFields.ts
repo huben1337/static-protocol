@@ -125,7 +125,7 @@ function addFieldsStatic (defInfo: DefinitionInfo, encodeCode: Code, decodeCode:
                                 decodeCase.add(`${valueName} = buffer.getUint8(offset++)`)
                             } else {
                                 const methodType = intMethodFromSize(size)
-                                encodeCase.add(`buffer.setString${methodType}(${valueName}, offset)`)
+                                encodeCase.add(`buffer.set${methodType}(${valueName}, offset)`)
                                 encodeCase.add(`offset += ${Math.abs(size)}`)
                                 decodeCase.add(`${valueName} = buffer.get${methodType}(offset)`)
                                 decodeCase.add(`offset += ${Math.abs(size)}`)
@@ -202,7 +202,7 @@ function addFieldsDynamic (defInfo: DefinitionInfo, encodeCode: Code, decodeCode
             decodeCode.add(`const ${varName} = buffer.getUint8(offset++)`)
         } else {
             const methodType = intMethodFromSize(size)
-            encodeCode.add(`buffer.setString${methodType}(${varName}, offset)`)
+            encodeCode.add(`buffer.set${methodType}(${varName}, offset)`)
             encodeCode.add(`offset += ${Math.abs(size)}`)
             decodeCode.add(`const ${varName} = buffer.get${methodType}(offset)`)
             decodeCode.add(`offset += ${Math.abs(size)}`)
@@ -288,7 +288,7 @@ function addFieldsDynamic (defInfo: DefinitionInfo, encodeCode: Code, decodeCode
                                 decodeCase.add(`${valueName} = buffer.getUint8(offset++)`)
                             } else {
                                 const methodType = intMethodFromSize(size)
-                                encodeCase.add(`buffer.setString${methodType}(${valueName}, offset)`)
+                                encodeCase.add(`buffer.set${methodType}(${valueName}, offset)`)
                                 encodeCase.add(`offset += ${Math.abs(size)}`)
                                 decodeCase.add(`${valueName} = buffer.get${methodType}(offset)`)
                                 decodeCase.add(`offset += ${Math.abs(size)}`)
