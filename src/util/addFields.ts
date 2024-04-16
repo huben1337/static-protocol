@@ -137,6 +137,9 @@ function addFieldsStatic (defInfo: DefinitionInfo, encodeCode: Code, decodeCode:
                             decodeCase.add(`${valueName} = !!buffer.getUint8(offset++)`)
                             break
                         }
+                        case INTERNAL_TYPES.NONE: {
+                            break
+                        }
                         case INTERNAL_TYPES.BUF: {
                             encodeCase.add(`buffer.set(${valueName}, offset)`)
                             encodeCase.add(`offset += ${size}`)

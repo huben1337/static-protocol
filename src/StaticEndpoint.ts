@@ -60,9 +60,12 @@ type DataDefintion = {
 
 const isEnum = Symbol('isEnum')
 
+type EnumFieldTypes = keyof InputDataTypes | DataDefintion | 'none'
+
 type EnumDefintion = {
-    [id: number | string]: keyof InputDataTypes | DataDefintion
+    [id: number | string]: EnumFieldTypes
 }
+
 type EnumDefintionInternal = {
     def: EnumDefintion
     [isEnum]: true
@@ -74,17 +77,6 @@ function Enum <T extends EnumDefintion>(def: T) {
         [isEnum]: true as const
     }
 }
-
-type t = EnumTypeInput<{
-    0: {
-        v: {
-            a: "bool";
-            b: "uint8";
-        };
-        t: "varchar:4";
-    };
-    1: "varbuf:3";
-}>
 
 
 type SubInput<T> = T extends FieldTypes ? DefinedTypeInput<T> : never
@@ -107,14 +99,18 @@ type DefinedTypeOutput<T extends FieldTypes> = T extends keyof OutputDataTypes ?
 )
 
 type EnumTypeInput<T extends EnumDefintion> = ValueType<{
-    [key in keyof T]: {
+    [key in keyof T]: T[key] extends 'none' ? {
+        id: key extends `${infer num extends number}` ? num : key
+    } : {
         id: key extends `${infer num extends number}` ? num : key
         value: SubInput<T[key]>
     }
 }>
 
 type EnumTypeOutput<T extends EnumDefintion> = ValueType<{
-    [key in keyof T]: {
+    [key in keyof T]: T[key] extends 'none' ? {
+        id: key extends `${infer num extends number}` ? num : key
+    } : {
         id: key extends `${infer num extends number}` ? num : key
         value: SubOutput<T[key]>
     }
@@ -130,11 +126,12 @@ const enum INTERNAL_TYPES {
     CHAR,
     VARCHAR,
     BOOL,
+    NONE,
     INT
 }
 
 
-const processType = (def: keyof InputDataTypes) => {
+const processType = (def: keyof InputDataTypes | 'none') => {
     const [type, bytes] = def.split(':')
     switch (type) {
         case 'buf':
@@ -168,6 +165,12 @@ const processType = (def: keyof InputDataTypes) => {
         case 'bool': {
             return {
                 type: INTERNAL_TYPES.BOOL,
+                size: 0
+            }
+        }
+        case 'none': {
+            return {
+                type: INTERNAL_TYPES.NONE,
                 size: 0
             }
         }
@@ -237,7 +240,7 @@ class DefinitionInfo {
     } */
 }
 
-function addEnumCase (typeDef: keyof InputDataTypes | DataDefintion, id: number, i: number, defInfo: DefinitionInfo, cases: EnumCase[], idString?: string) {
+function addEnumCase (typeDef: EnumFieldTypes, id: number, i: number, defInfo: DefinitionInfo, cases: EnumCase[], idString?: string) {
     if (typeof typeDef === 'string') { // throw new Error('Enum can onbly specify type as string')
         cases[i] = {
             id,
@@ -282,6 +285,10 @@ const processDef = (def : DataDefintion, parent: Args, defInfo: DefinitionInfo) 
                 }
                 case INTERNAL_TYPES.BOOL: {
                     fields.bool.push(field)
+                    break
+                }
+                case INTERNAL_TYPES.NONE: {
+                    fields.none.push(field)
                     break
                 }
                 case INTERNAL_TYPES.BUF: {
@@ -360,6 +367,7 @@ class Fields {
     varchar = new FieldList()
     int = new FieldList()
     bool = new FieldList()
+    none = new FieldList()
     enum: {idName: string, valueName: string, cases: EnumCase[], mappedIds: boolean}[] = []
 }
 
@@ -388,6 +396,7 @@ class StaticEndpoint<T extends Defintion, C extends boolean> {
         }
         const bufferSize = defInfo.getBufferSize()
         if (fields.enum.length > 0) {
+            // Determine buffer length if length is dependent on enum
             encodeCode.add(`let bufferLength = ${bufferSize}`)
             fields.enum.forEach(({ idName, valueName, cases }) => {
                 const encodeSwitch = encodeCode.switch(idName)
@@ -406,6 +415,9 @@ class StaticEndpoint<T extends Defintion, C extends boolean> {
                             }
                             case INTERNAL_TYPES.BOOL: {
                                 encodeCase.add(`bufferLength++`)
+                                break
+                            }
+                            case INTERNAL_TYPES.NONE: {
                                 break
                             }
                             case INTERNAL_TYPES.BUF:

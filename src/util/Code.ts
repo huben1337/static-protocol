@@ -73,7 +73,7 @@ class Code {
     }
 
     compile (context = {}) {
-        //console.log(this.toString())
+        // console.log(this.toString())
         return compile.call(context, this.toString())
     }
 }
