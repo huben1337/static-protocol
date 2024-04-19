@@ -9,7 +9,7 @@ const intMethodFromSize = (size: number) => {
 
 function addFieldsStatic (defInfo: DefinitionInfo, encodeCode: Code, decodeCode: Code, bufferOffset: number) {
     const { fields } = defInfo
-    fields.int.forEach(({ varName, size }) => {
+    fields.int.forEach(({ varName, size, validate }) => {
         if (size === 1 || size === -1) {
             encodeCode.add(`buffer.setUint8(${varName}, ${bufferOffset})`)
             decodeCode.add(`const ${varName} = buffer.getUint8(${bufferOffset})`)
@@ -18,28 +18,42 @@ function addFieldsStatic (defInfo: DefinitionInfo, encodeCode: Code, decodeCode:
             encodeCode.add(`buffer.set${methodType}(${varName}, ${bufferOffset})`)
             decodeCode.add(`const ${varName} = buffer.get${methodType}(${bufferOffset})`)
         }
+        if (validate) {
+            decodeCode.add(`if (!vd${varName}(${varName})) return null`)
+        }
         bufferOffset += size
     })
-    fields.buf.forEach(({ varName, size }) => {
+    fields.buf.forEach(({ varName, size, validate }) => {
         encodeCode.add(`buffer.set(${varName}, ${bufferOffset})`)
         decodeCode.add(`const ${varName} = buffer.subarray(${bufferOffset}, ${bufferOffset + size})`)
+        if (validate) {
+            decodeCode.add(`if (!vd${varName}(${varName})) return null`)
+        }
         bufferOffset += size
     })
-    fields.char.forEach(({ varName, size }) => {
+    fields.char.forEach(({ varName, size, validate }) => {
         encodeCode.add(`buffer.setString(${varName}, ${bufferOffset})`)
         decodeCode.add(`const ${varName} = buffer.getString(${bufferOffset}, ${bufferOffset + size})`)
+        if (validate) {
+            decodeCode.add(`if (!vd${varName}(${varName})) return null`)
+        }
         bufferOffset += size
     })
     for (let i = 0; i < fields.bool.length; i += 8) {
-        const packedBools = fields.bool.slice(i, i + 8 > fields.bool.length ? fields.bool.length : i + 8).map(({ varName }) => varName)
-        encodeCode.add(`buffer.setUint8(${packedBools.map((varName, index) => `${varName} << ${index}`).join(' | ')}, ${bufferOffset})`)
-        packedBools.forEach((varName, index) => decodeCode.add(`const ${varName} = !!(buffer.getUint8(${bufferOffset}) >> ${index} & 1)`))
+        const packedBools = fields.bool.slice(i, i + 8 > fields.bool.length ? fields.bool.length : i + 8)
+        encodeCode.add(`buffer.setUint8(${packedBools.map(({ varName }, index) => `${varName} << ${index}`).join(' | ')}, ${bufferOffset})`)
+        packedBools.forEach(({ varName, validate }, index) => {
+            decodeCode.add(`const ${varName} = !!(buffer.getUint8(${bufferOffset}) >> ${index} & 1)`)
+            if (validate) {
+                decodeCode.add(`if (!vd${varName}(${varName})) return null`)
+            }
+        })
         bufferOffset++
     }
     if (fields.varchar.length > 0 || fields.varbuf.length > 0 || fields.enum.length > 0) {
         let tempOffset = bufferOffset
         for (let i = 0; i < fields.varchar.length; i++) {
-            const { varName, size } = fields.varchar[i]
+            const { varName, size, validate } = fields.varchar[i]
             if (size === 2) {
                 encodeCode.add(`buffer.setUint16(${varName}.length, ${bufferOffset})`)
                 bufferOffset += 2
@@ -50,7 +64,7 @@ function addFieldsStatic (defInfo: DefinitionInfo, encodeCode: Code, decodeCode:
             
         }
         for (let i = 0; i < fields.varbuf.length; i++) {
-            const { varName, size } = fields.varbuf[i];
+            const { varName, size, validate } = fields.varbuf[i];
             if (size === 2) {
                 encodeCode.add(`buffer.setUint16(${varName}.length, ${bufferOffset})`)
                 bufferOffset += 2
@@ -64,7 +78,7 @@ function addFieldsStatic (defInfo: DefinitionInfo, encodeCode: Code, decodeCode:
         decodeCode.add(`let offset = ${bufferOffset}`)
 
         for (let i = 0; i < fields.varchar.length; i++) {
-            const { varName, size } = fields.varchar[i];
+            const { varName, size, validate } = fields.varchar[i];
             encodeCode.add(`buffer.setString(${varName}, offset)`)
             encodeCode.add(`offset += ${varName}.length`)
             if (size === 2) {
@@ -74,10 +88,12 @@ function addFieldsStatic (defInfo: DefinitionInfo, encodeCode: Code, decodeCode:
                 decodeCode.add(`const ${varName} = buffer.getString(offset, offset += buffer.getUint8(${tempOffset}))`)
                 tempOffset++
             }
-            
+            if (validate) {
+                decodeCode.add(`if (!vd${varName}(${varName})) return null`)
+            }
         }
         for (let i = 0; i < fields.varbuf.length; i++) {
-            const { varName, size } = fields.varbuf[i];
+            const { varName, size, validate } = fields.varbuf[i];
             encodeCode.add(`buffer.set(${varName}, offset)`)
             encodeCode.add(`offset += ${varName}.length`)
             if (size === 2) {
@@ -87,7 +103,9 @@ function addFieldsStatic (defInfo: DefinitionInfo, encodeCode: Code, decodeCode:
                 decodeCode.add(`const ${varName} = buffer.subarray(offset, offset += buffer.getUint8(${tempOffset}))`)
                 tempOffset++
             }
-            
+            if (validate) {
+                decodeCode.add(`if (!vd${varName}(${varName})) return null`)
+            } 
         }
 
         fields.enum.forEach(({ valueName }) => {
@@ -105,7 +123,7 @@ function addFieldsStatic (defInfo: DefinitionInfo, encodeCode: Code, decodeCode:
                 decodeCode.add(`const ${idName} = buffer.getUint8(offset++)`)
             }
             const decodeSwitch = decodeCode.switch(switchKey)
-            cases.forEach(({ id, idString, nested, def }) => {
+            cases.forEach(({ id, idString, nested, def, validate }) => {
                 const encodeCase = encodeSwitch.case(`${idString ?? id}`)
                 const decodeCase = decodeSwitch.case(`${id}`)
                 if (mappedIds) {
@@ -188,6 +206,9 @@ function addFieldsStatic (defInfo: DefinitionInfo, encodeCode: Code, decodeCode:
                         }
                         default: throw new Error(`Unknown type ${type}`)
                     }
+                    if (validate) {
+                        decodeCase.add(`if (!vd${valueName}(${valueName})) return null`)
+                    }
                 }
                 encodeCase.add('break')
                 decodeCase.add('break')
@@ -199,7 +220,7 @@ function addFieldsStatic (defInfo: DefinitionInfo, encodeCode: Code, decodeCode:
 
 function addFieldsDynamic (defInfo: DefinitionInfo, encodeCode: Code, decodeCode: Code) {
     const { fields } = defInfo
-    fields.int.forEach(({ varName, size }) => {
+    fields.int.forEach(({ varName, size, validate }) => {
         if (size === 1 || size === -1) {
             encodeCode.add(`buffer.setUint8(${varName}, offset++)`)
             decodeCode.add(`const ${varName} = buffer.getUint8(offset++)`)
@@ -210,27 +231,41 @@ function addFieldsDynamic (defInfo: DefinitionInfo, encodeCode: Code, decodeCode
             decodeCode.add(`const ${varName} = buffer.get${methodType}(offset)`)
             decodeCode.add(`offset += ${Math.abs(size)}`)
         }
+        if (validate) {
+            decodeCode.add(`if (!vd${varName}(${varName})) return null`)
+        }
     })
-    fields.buf.forEach(({ varName, size }) => {
+    fields.buf.forEach(({ varName, size, validate }) => {
         encodeCode.add(`buffer.set(${varName}, offset)`)
         encodeCode.add(`offset += ${size}`)
         decodeCode.add(`const ${varName} = buffer.subarray(offset, offset += ${size})`)
+        if (validate) {
+            decodeCode.add(`if (!vd${varName}(${varName})) return null`)
+        }
     })
-    fields.char.forEach(({ varName, size }) => {
+    fields.char.forEach(({ varName, size, validate }) => {
         encodeCode.add(`buffer.setString(${varName}, offset)`)
         encodeCode.add(`offset += ${size}`)
         decodeCode.add(`const ${varName} = buffer.getString(offset, offset += ${size})`)
+        if (validate) {
+            decodeCode.add(`if (!vd${varName}(${varName})) return null`)
+        }
     })
     for (let i = 0; i < fields.bool.length; i += 8) {
-        const packedBools = fields.bool.slice(i, i + 8 > fields.bool.length ? fields.bool.length : i + 8).map(({ varName }) => varName)
-        encodeCode.add(`buffer.setUint8(${packedBools.map((varName, index) => `${varName} << ${index}`).join(' | ')}, offset++)`)
-        packedBools.forEach((varName, index) => decodeCode.add(`const ${varName} = !!(buffer.getUint8(offset) >> ${index} & 1)`))
+        const packedBools = fields.bool.slice(i, i + 8 > fields.bool.length ? fields.bool.length : i + 8)
+        encodeCode.add(`buffer.setUint8(${packedBools.map(({ varName }, index) => `${varName} << ${index}`).join(' | ')}, offset++)`)
+        packedBools.forEach(({ varName, size, validate }, index) => {
+            decodeCode.add(`const ${varName} = !!(buffer.getUint8(offset) >> ${index} & 1)`)
+            if (validate) {
+                decodeCode.add(`if (!vd${varName}(${varName})) return null`)
+            }
+        })
         decodeCode.add(`offset++`)
     }
     if (fields.varchar.length > 0 || fields.varbuf.length > 0 || fields.enum.length > 0) {
         // let tempOffset = bufferOffset
         for (let i = 0; i < fields.varchar.length; i++) {
-            const { varName, size } = fields.varchar[i]
+            const { varName, size, validate } = fields.varchar[i]
             if (size === 2) {
                 encodeCode.add(`buffer.setUint16(${varName}.length, offset)`)
                 encodeCode.add(`offset += 2`)
@@ -238,17 +273,23 @@ function addFieldsDynamic (defInfo: DefinitionInfo, encodeCode: Code, decodeCode
                 encodeCode.add(`offset += ${varName}.length`)
 
                 decodeCode.add(`const ${varName} = buffer.getString(offset + 2, offset  += 2 + buffer.getUint16(offset))`)
+                if (validate) {
+                    decodeCode.add(`if (!vd${varName}(${varName})) return null`)
+                }
             } else {
                 encodeCode.add(`buffer.setUint8(${varName}.length, offset++)`)
                 encodeCode.add(`buffer.setString(${varName}, offset)`)
                 encodeCode.add(`offset += ${varName}.length`)
 
                 decodeCode.add(`const ${varName} = buffer.getString(offset + 1, offset  += 1 + buffer.getUint8(offset))`)
+                if (validate) {
+                    decodeCode.add(`if (!vd${varName}(${varName})) return null`)
+                }
             } 
             
         }
         for (let i = 0; i < fields.varbuf.length; i++) {
-            const { varName, size } = fields.varbuf[i];
+            const { varName, size, validate } = fields.varbuf[i];
             if (size === 2) {
                 encodeCode.add(`buffer.setUint16(${varName}.length, offset)`),
                 encodeCode.add(`offset += 2`)
@@ -256,12 +297,18 @@ function addFieldsDynamic (defInfo: DefinitionInfo, encodeCode: Code, decodeCode
                 encodeCode.add(`offset += ${varName}.length`)
 
                 decodeCode.add(`const ${varName} = buffer.subarray(offset + 2, offset += 2 + buffer.getUint16(offset))`)
+                if (validate) {
+                    decodeCode.add(`if (!vd${varName}(${varName})) return null`)
+                }
             } else {
                 encodeCode.add(`buffer.setUint8(${varName}.length, offset++)`)
                 encodeCode.add(`buffer.set(${varName}, offset)`)
                 encodeCode.add(`offset += ${varName}.length`)
 
                 decodeCode.add(`const ${varName} = buffer.subarray(offset + 1, offset += 1 + buffer.getUint8(offset))`)
+                if (validate) {
+                    decodeCode.add(`if (!vd${varName}(${varName})) return null`)
+                }
             }
         }
 

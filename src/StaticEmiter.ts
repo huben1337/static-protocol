@@ -2,7 +2,7 @@ import { StaticProtocolType } from './StaticProtocol.js'
 import { FullyReadonlyBuffer } from './util/Buffer.js';
 
 
-function StaticEmiter <T extends StaticProtocolType<any, boolean, boolean>> (proto: T, emiterCallback: (data: FullyReadonlyBuffer) => any) {
+function StaticEmiter <T extends StaticProtocolType<any, boolean>> (proto: T, emiterCallback: (data: FullyReadonlyBuffer) => any) {
 
     const mapped = Object.entries(proto).map(([name, endpoint]) => {
         if (endpoint.encode.length === 0) {

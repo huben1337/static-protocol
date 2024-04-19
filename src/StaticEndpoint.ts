@@ -49,18 +49,28 @@ type OutputDataTypes = {
 type Defintion = {
     channel?: number
     data?: DataDefintion
+    validate?: boolean
     allocateNew?: boolean
 }
 
-type FieldTypes = keyof InputDataTypes | DataDefintion | EnumDefintionInternal
+type ExtendedFieldType = ValueType<{
+    [T in keyof InputDataTypes]: {
+        type: T
+        test: (value: InputDataTypes[T]) => boolean
+    }
+}>
+
+type BaseFieldTypes = keyof InputDataTypes | DataDefintion | ExtendedFieldType
+
+type FieldTypes = BaseFieldTypes | EnumDefintionInternal 
+
 type DataDefintion = { 
     [field: string]: FieldTypes
-    [isEnum]?: never
 }
 
 const isEnum = Symbol('isEnum')
 
-type EnumFieldTypes = keyof InputDataTypes | DataDefintion | 'none'
+type EnumFieldTypes = BaseFieldTypes | 'none'
 
 type EnumDefintion = {
     [id: number | string]: EnumFieldTypes
@@ -83,18 +93,22 @@ type SubInput<T> = T extends FieldTypes ? DefinedTypeInput<T> : never
 type SubOutput<T> = T extends FieldTypes ? DefinedTypeOutput<T> : never
 
 type DefinedTypeInput<T extends FieldTypes> = T extends keyof InputDataTypes ? InputDataTypes[T] : (
-    T extends ReturnType<typeof Enum> ? EnumTypeInput<T['def']> : (
-        {
-            [key in keyof T]: SubInput<T[key]>
-        }
+    T extends ExtendedFieldType ? InputDataTypes[T['type']] : (
+        T extends EnumDefintionInternal ? EnumTypeInput<T['def']> : (
+            {
+                [key in keyof T]: SubInput<T[key]>
+            }
+        )
     )
 )
 
 type DefinedTypeOutput<T extends FieldTypes> = T extends keyof OutputDataTypes ? OutputDataTypes[T] : (
-    T extends ReturnType<typeof Enum> ? EnumTypeOutput<T['def']> : (
-        {
-            [key in keyof T]: SubOutput<T[key]>
-        }
+    T extends ExtendedFieldType ? OutputDataTypes[T['type']] : (
+        T extends EnumDefintionInternal ? EnumTypeOutput<T['def']> : (
+            {
+                [key in keyof T]: SubOutput<T[key]>
+            }
+        )
     )
 )
 
@@ -191,11 +205,13 @@ type EnumCase = {
     idString?: string,
     nested: true,
     def: DefinitionInfo
+    validate: boolean
 } | { 
     id: number,
     idString?: string,
     nested: false,
     def: ReturnType<typeof processType>
+    validate: boolean
 }
 
 class Args  {
@@ -209,13 +225,20 @@ class Args  {
 
 
 class DefinitionInfo {
+    constructor (validate: boolean) {
+        this.validate = validate
+    }
+    validators: Record<string, ExtendedFieldType['test']> = {}
+    validate: boolean
     fields = new Fields()
     args = new Args()
     sizeCalc = new Array<string>()
     fixedSize = 0
-    valueIndex = 0
+    state = {
+        valueIndex: 0
+    }
     getVarName () {
-        return `_${this.valueIndex++}`
+        return `_${this.state.valueIndex++}`
     }
     getBufferSize () {
         const fixedSize = this.fixedSize + Math.ceil(this.fields.bool.length / 8)
@@ -227,138 +250,155 @@ class DefinitionInfo {
         }
     }
 
-    /* getSub () {
-        let closed = false
-        const sub = new DefinitionInfo()
-        sub.valueIndex = this.valueIndex
-        const done = () => {
-            if (closed) throw new Error('Sub definition already closed')
-            closed = true
-            this.valueIndex = sub.valueIndex  
-        }
-        return { sub, done }
-    } */
+    sub () {
+        const sub = new DefinitionInfo(this.validate)
+        sub.state = this.state
+        sub.validators = this.validators
+        return sub
+    }
 }
 
-function addEnumCase (typeDef: EnumFieldTypes, id: number, i: number, defInfo: DefinitionInfo, cases: EnumCase[], idString?: string) {
+function processEnumCase (typeDef: EnumFieldTypes, id: number, defInfo: DefinitionInfo, idString: string, valueName: string): EnumCase {
     if (typeof typeDef === 'string') { // throw new Error('Enum can onbly specify type as string')
-        cases[i] = {
+        return {
             id,
             idString,
             nested: false,
-            def: processType(typeDef)
+            def: processType(typeDef),
+            validate: false
         }
-    } else if (typeof typeDef === 'object') {
-        const subDefInfo = new DefinitionInfo()
-        subDefInfo.valueIndex = defInfo.valueIndex
-        processDef(typeDef, subDefInfo.args, subDefInfo)
-        cases[i] = {
+    } else if (('test' in typeDef) && typeof typeDef.test === 'function') {
+        const validate = defInfo.validate
+        if (validate) {
+            defInfo.validators[valueName] = typeDef.test
+        }
+        return {
+            id,
+            idString,
+            nested: false,
+            def: processType(typeDef.type as keyof InputDataTypes),
+            validate
+        }
+    } else {
+        const subDefInfo = defInfo.sub()
+        processDef(typeDef as DataDefintion, subDefInfo.args, subDefInfo)
+        return {
             id,
             idString,
             nested: true,
-            def: subDefInfo
+            def: subDefInfo,
+            validate: false
         }
-        defInfo.valueIndex = subDefInfo.valueIndex
     }
 }
 
-const processDef = (def : DataDefintion, parent: Args, defInfo: DefinitionInfo) => {
+const processEnumDef = (def: EnumDefintion, name: string, parent: Args, defInfo: DefinitionInfo) => {
+    const subFields = Object.entries(def)
+    // if (subFields.some((value) => value.match(/^[^0-9]+$/))) throw new Error('Enum can only contain numbers as ids')
+    const usedIds = new Set<number>()
+    const cases = new Array<EnumCase>(subFields.length)
+    const idName = defInfo.getVarName()
+    const valueName = defInfo.getVarName()
+    let mappedId = 0
+    for (let i = 0; i < subFields.length; i++) {
+        const [idString, sub] = subFields[i]
+        if (/^[0-9]{1,3}$/.test(idString)) {
+            const id = parseInt(idString)
+            if (id > 255) throw new Error('Enum indecies must be between 0 and 255')
+            if (usedIds.has(id)) throw new Error('Enum indecies must be unique')
+            usedIds.add(id)
+            cases[i] = processEnumCase(sub, id, defInfo, idString, valueName)
+        } else {
+            while (usedIds.has(mappedId)) {
+                mappedId++
+                if (mappedId > 255) throw new Error('Ran out of enum indecies for mapping')
+            }
+            cases[i] = processEnumCase(sub, mappedId, defInfo, `'${idString}'`, valueName)
+        }
+    }
+    parent.args.push(`${name}: {id: ${idName}, value: ${valueName}}`)
+    defInfo.fields.enum.push({
+        idName,
+        valueName,
+        cases,
+        mappedIds: mappedId > 0
+    })
+    defInfo.fixedSize++
+}
+
+const processField = (sub: keyof InputDataTypes, name: string, parent: Args, defInfo: DefinitionInfo, test: ExtendedFieldType['test'] | null) => {
+    const { type, size } = processType(sub)
+    const varName = defInfo.getVarName()
+    parent.args.push(`${name}: ${varName}`)
+    if (type === INTERNAL_TYPES.VARBUF || type === INTERNAL_TYPES.VARCHAR) {
+        parent.varArgs.push(`${name}: ${varName}`)
+    }
+    const validate = defInfo.validate && test !== null
+    if (validate) {
+        defInfo.validators[varName] = test
+    }
+    const field = {
+        varName,
+        size,
+        validate
+    }
+    defInfo.fixedSize += size
+    const { fields } = defInfo
+    switch (type) {
+        case INTERNAL_TYPES.INT: {
+            fields.int.push(field)
+            break
+        }
+        case INTERNAL_TYPES.BOOL: {
+            fields.bool.push(field)
+            break
+        }
+        case INTERNAL_TYPES.NONE: {
+            fields.none.push(field)
+            break
+        }
+        case INTERNAL_TYPES.BUF: {
+            fields.buf.push(field)
+            break
+        }
+        case INTERNAL_TYPES.VARBUF: {
+            defInfo.sizeCalc.push(`${varName}.length`)
+            fields.varbuf.push(field)
+            break
+        }
+        case INTERNAL_TYPES.CHAR: {
+            fields.char.push(field)
+            break
+        }
+        case INTERNAL_TYPES.VARCHAR: {
+            defInfo.sizeCalc.push(`${varName}.length`)  
+            fields.varchar.push(field)
+            break
+        }
+    }
+}
+
+const processDef = (def: DataDefintion, parent: Args, defInfo: DefinitionInfo) => {
     for (const name in def) {
         const sub = def[name]
         if (typeof sub === 'string') {
-            const varName = defInfo.getVarName()
-            const { type, size } = processType(sub)
-            parent.args.push(`${name}: ${varName}`)
-            if (type === INTERNAL_TYPES.VARBUF || type === INTERNAL_TYPES.VARCHAR) {
-                parent.varArgs.push(`${name}: ${varName}`)
-            }
-            const field = {
-                varName,
-                size
-            }
-            defInfo.fixedSize += size
-            const { fields } = defInfo
-            switch (type) {
-                case INTERNAL_TYPES.INT: {
-                    fields.int.push(field)
-                    break
-                }
-                case INTERNAL_TYPES.BOOL: {
-                    fields.bool.push(field)
-                    break
-                }
-                case INTERNAL_TYPES.NONE: {
-                    fields.none.push(field)
-                    break
-                }
-                case INTERNAL_TYPES.BUF: {
-                    fields.buf.push(field)
-                    break
-                }
-                case INTERNAL_TYPES.VARBUF: {
-                    defInfo.sizeCalc.push(`${varName}.length`)
-                    fields.varbuf.push(field)
-                    break
-                }
-                case INTERNAL_TYPES.CHAR: {
-                    fields.char.push(field)
-                    break
-                }
-                case INTERNAL_TYPES.VARCHAR: {
-                    defInfo.sizeCalc.push(`${varName}.length`)  
-                    fields.varchar.push(field)
-                    break
-                }
-            }
-        } else if (typeof sub === 'object') {
-            if (sub[isEnum]) { // !
-                const enumDef = sub.def
-                const subFields = Object.entries(enumDef)
-                // if (subFields.some((value) => value.match(/^[^0-9]+$/))) throw new Error('Enum can only contain numbers as ids')
-                const usedIds = new Set<number>()
-                const cases = new Array<EnumCase>(subFields.length)
-                let mappedId = 0
-                for (let i = 0; i < subFields.length; i++) {
-                    const [idString, typeDef] = subFields[i]
-                    if (/^[0-9]{1,3}$/.test(idString)) {
-                        const id = parseInt(idString)
-                        if (id > 255) throw new Error('Enum indecies must be between 0 and 255')
-                        if (usedIds.has(id)) throw new Error('Enum indecies must be unique')
-                        usedIds.add(id)
-                        addEnumCase(typeDef, id, i, defInfo, cases, idString)
-                        
-                    } else {
-                        while (usedIds.has(mappedId)) {
-                            mappedId++
-                            if (mappedId > 255) throw new Error('Ran out of enum indecies for mapping')
-                        }
-                        addEnumCase(typeDef, mappedId, i, defInfo, cases, `'${idString}'`)
-                    }
-                }
-                const idName = defInfo.getVarName()
-                const valueName = defInfo.getVarName()
-                parent.args.push(`${name}: {id: ${idName}, value: ${valueName}}`)
-                // console.log(cases)
-                defInfo.fields.enum.push({
-                    idName,
-                    valueName,
-                    cases,
-                    mappedIds: mappedId > 0
-                })
-                defInfo.fixedSize++
-            } else {
-                const child = new Args(name)
-                processDef(sub, child, defInfo)
-                parent.args.push(child)
-                parent.varArgs.push(child)
-            }
+            processField(sub, name, parent, defInfo, null)
+        } else if (('test' in sub) && typeof sub.test === 'function') {
+            processField(sub.type as keyof InputDataTypes, name, parent, defInfo, sub.test)
+        } else if (isEnum in sub) { // !
+            processEnumDef(sub.def, name, parent, defInfo)
+        } else {
+            const child = new Args(name)
+            processDef(sub as DataDefintion, child, defInfo)
+            parent.args.push(child)
+            parent.varArgs.push(child)
         }
     }
 }
 
 
 
-const FieldList = Array<{varName: string, size: number}>
+const FieldList = Array<{varName: string, size: number, validate: boolean}>
 
 class Fields {
     buf = new FieldList()
@@ -372,10 +412,11 @@ class Fields {
 }
 
 
-class StaticEndpoint<T extends Defintion, C extends boolean> {
-    constructor (definition: T, noValidator: C) {
-        this.channel = (definition.channel as T['channel'] extends number ? T['channel'] : undefined)
-        const defInfo = new DefinitionInfo()
+class StaticEndpoint<T extends Defintion> {
+    constructor (definition: T) {
+        this.channel = definition.channel
+        const validate = definition.validate !== false
+        const defInfo = new DefinitionInfo(validate)
         const { args, fields } = defInfo
         if (definition.data) {
             processDef(definition.data, args, defInfo)
@@ -384,7 +425,11 @@ class StaticEndpoint<T extends Defintion, C extends boolean> {
         const objTemplate = getObjectStructure(args.args)
         const encodeCode = new Code(`return ((${objTemplate.length > 0 ? `{${objTemplate}}` : ''}) => {`)
 
-        const decodeCode = new Code('return ((input) => {')
+        const decodeCode = new Code()
+        for (const name in defInfo.validators) {
+            decodeCode.add(`const vd${name} = this.vd.${name}`)
+        }
+        decodeCode.add('return ((input) => {')
         
         encodeCode.indent++
         decodeCode.indent++
@@ -395,6 +440,7 @@ class StaticEndpoint<T extends Defintion, C extends boolean> {
             defInfo.fixedSize++
         }
         const bufferSize = defInfo.getBufferSize()
+        let bufferOffset = 0
         if (fields.enum.length > 0) {
             // Determine buffer length if length is dependent on enum
             encodeCode.add(`let bufferLength = ${bufferSize}`)
@@ -437,19 +483,25 @@ class StaticEndpoint<T extends Defintion, C extends boolean> {
                 })
             })
             encodeCode.add('const buffer = this.B.alloc(bufferLength)')
+            if (definition.channel !== undefined) {
+                encodeCode.add(`buffer.setUint8(${definition.channel}, ${bufferOffset++})`)
+            }
 
         } else {
             if (fields.varchar.length > 0 || fields.varbuf.length > 0 || definition.allocateNew) {
                 encodeCode.add(`const buffer = this.B.alloc(${bufferSize})`)
+                if (definition.channel !== undefined) {
+                    encodeCode.add(`buffer.setUint8(${definition.channel}, ${bufferOffset++})`)
+                }
             } else {
-                
                 encodeCode.insert(`const buffer = this.B.alloc(${bufferSize})`, 0)
+                if (definition.channel !== undefined) {
+                    encodeCode.insert(`buffer.setUint8(${definition.channel}, ${bufferOffset++})`, 1)
+                }
             }  
         }
-        let bufferOffset = 0
-        if (definition.channel !== undefined) {
-            encodeCode.add(`buffer.setUint8(${definition.channel}, ${bufferOffset++})`)
-        }
+        
+        
 
         addFieldsStatic(defInfo, encodeCode, decodeCode, bufferOffset)
         
@@ -469,17 +521,49 @@ class StaticEndpoint<T extends Defintion, C extends boolean> {
         this.encode = encodeCode.compile({
             B: Buffer,
         })
-        this.decode = decodeCode.compile({
+        this.decode = decodeCode.compile(validate ? {
             B: ReadonlyBuffer,
+            vd: defInfo.validators
+        } : {
+            B: ReadonlyBuffer
         })
     }
 
-    channel: T['channel'] extends number ? T['channel'] : undefined
+    channel: T['channel']
 
     readonly encode: (data: T['data'] extends DataDefintion ? ProtoObject<T, true> : void) => T['allocateNew'] extends true ? Buffer : ReadonlyBuffer<ReadonlyUint8Array>
 
-    readonly decode: (buffer: BufferLike) => T['data'] extends DataDefintion ? ProtoObject<T, false> : void
+    readonly decode: (buffer: BufferLike) => T['data'] extends DataDefintion ? (
+        T['validate'] extends false ? ProtoObject<T, false> : (
+            HasExtended<T['data']> extends never ? ProtoObject<T, false> : ProtoObject<T, false> | null
+        )
+    ) : void
 }
+
+type HasExtended<T extends FieldTypes> = T extends keyof InputDataTypes ? never : (
+    T extends ExtendedFieldType ? true : (
+        T extends EnumDefintionInternal ? EnumHasExtended<T['def']> : ValueType<{
+            [key in keyof T]: T[key] extends FieldTypes ? HasExtended<T[key]> : never
+        }>
+    )
+)
+
+type EnumHasExtended<T extends EnumDefintion> = ValueType<{
+    [key in keyof T]: T[key] extends FieldTypes ? HasExtended<T[key]> : never
+}>
+
+const d = {
+    test: 'varchar',
+    num: {
+        num: {
+            num: 'uint16'
+        }
+    },
+} satisfies DataDefintion
+type a = HasExtended<typeof d>
+
+// type EnumHasExtended<T extends EnumDefintion> = T[keyof T] extends FieldTypes ? HasExtended<T[keyof T]> : never
+
 
 
 /* 

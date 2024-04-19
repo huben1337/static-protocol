@@ -3,7 +3,7 @@ import Code from './util/Code.js'
 import {  StaticProtocolType } from './StaticProtocol.js'
 import { BufferLike } from './StaticEndpoint.js'
 
-function StaticHandler <T extends StaticProtocolType<any, boolean, boolean>> (proto: T, endpointHandlers: { [endpoint in keyof T]?: (data: ReturnType<T[endpoint]['decode']>) => void }) {
+function StaticHandler <T extends StaticProtocolType<any, boolean>> (proto: T, endpointHandlers: { [endpoint in keyof T]?: (data: ReturnType<T[endpoint]['decode']>) => void }) {
     const handleCode = new Code()
     const entries = Object.entries(endpointHandlers)
     for (let i = 0; i < entries.length; i++) {

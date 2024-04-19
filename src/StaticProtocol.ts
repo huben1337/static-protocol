@@ -4,15 +4,15 @@ type ProtocolDefintion = {
     [endpoint: string]: Defintion
 }
 
-type StaticProtocolType <T extends ProtocolDefintion, R, C extends boolean> = R extends true ? {
-    [name in keyof T]: StaticEndpoint<T[name], C>
+type StaticProtocolType <T extends ProtocolDefintion, R> = R extends true ? {
+    [name in keyof T]: StaticEndpoint<T[name]>
 } : {
-    [name in keyof T]: StaticEndpoint<T[name] & { channel: number }, C>
+    [name in keyof T]: StaticEndpoint<T[name] & { channel: number }>
 }
 
-function StaticProtocol <T extends ProtocolDefintion, R extends boolean, C extends boolean> (definition: T, raw: R, noValidator: C): StaticProtocolType<T, R, C> {
+function StaticProtocol <T extends ProtocolDefintion, R extends boolean> (definition: T, raw: R): StaticProtocolType<T, R> {
     if (raw) {
-        const mapped = Object.entries(definition).map(([name, def]) => [name, new StaticEndpoint(def, noValidator)])
+        const mapped = Object.entries(definition).map(([name, def]) => [name, new StaticEndpoint(def)])
         return Object.fromEntries(mapped)
     } else {
         const usedChannels = new Set<number>()
@@ -28,7 +28,7 @@ function StaticProtocol <T extends ProtocolDefintion, R extends boolean, C exten
                 usedChannels.add(channelId)
                 def.channel = channelId
             }
-            return [name, new StaticEndpoint(def, noValidator)]
+            return [name, new StaticEndpoint(def)]
         })
         return Object.fromEntries(mapped)
     }
