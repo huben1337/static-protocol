@@ -64,18 +64,24 @@ const isEnum = Symbol('isEnum')
 type EnumFieldTypes = BaseFieldTypes | 'none'
 
 type EnumDefintion = {
+    /** Maps id to type */
     [id: number | string]: EnumFieldTypes
 }
 
 type EnumDefintionInternal = {
     def: EnumDefintion
-    [isEnum]: true
+    isEnum: true
 }
 
+/**
+ * Specifies an enum.
+ * 
+ * @param def - Enum definition: `{ [id: string | number]: type }`
+ */
 function Enum <T extends EnumDefintion>(def: T) {
     return {
         def,
-        [isEnum]: true as const
+        isEnum: true as const
     }
 }
 
@@ -410,8 +416,8 @@ const processDef = (def: DataDefintion, parent: Args, defInfo: DefinitionInfo) =
             processField(sub, name, parent, defInfo, null)
         } else if (('test' in sub) && typeof sub.test === 'function') {
             processField(sub.type as keyof InputDataTypes, name, parent, defInfo, sub.test)
-        } else if (isEnum in sub) { // !
-            processEnumDef(sub.def, name, parent, defInfo)
+        } else if (('isEnum' in sub) && sub.isEnum === true) {
+            processEnumDef((sub as EnumDefintionInternal).def, name, parent, defInfo)
         } else {
             const child = new Args(name)
             processDef(sub as DataDefintion, child, defInfo)

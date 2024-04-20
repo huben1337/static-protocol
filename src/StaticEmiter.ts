@@ -10,7 +10,7 @@ import { FullyReadonlyBuffer } from './util/Buffer.js';
  * @param mask - The list of endpoints to add to the emitter. If not provided, all endpoints will be added.
  * @return The static emitter object.
  */
-function StaticEmiter <T extends StaticProtocolType<any, boolean>> (proto: T, emiterCallback: (data: FullyReadonlyBuffer) => any, mask?: (keyof T)[]) {
+function StaticEmiter <T extends StaticProtocolType<any, boolean>, M extends Array<keyof T> | undefined> (proto: T, emiterCallback: (data: FullyReadonlyBuffer) => any, mask?: M) {
     const endpoints = mask === undefined ? Object.entries(proto) : Object.entries(proto).filter(([name]) => mask.includes(name))
     const mapped = endpoints.map(([name, endpoint]) => {
         if (endpoint.encode.length === 0) {
@@ -23,9 +23,13 @@ function StaticEmiter <T extends StaticProtocolType<any, boolean>> (proto: T, em
             }] as const
         }
     })
-    return Object.fromEntries(mapped) as {
-        [key in keyof T]: ((data: ReturnType<T[key]['decode']>) => void)
-    }
+    return Object.fromEntries(mapped) as (
+        M extends Array<keyof T> ? {
+            [key in keyof Pick<T, M[number]>]: ((data: ReturnType<T[key]['decode']>) => void)
+        } : {
+            [key in keyof T]: ((data: ReturnType<T[key]['decode']>) => void)
+        }
+    )
 }
 
 export { StaticEmiter }
