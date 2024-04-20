@@ -11,11 +11,14 @@ StaticProtocol is a small utility for specifying a schema and creating an instan
 
 ## Datatypes
 - int/uint 8, 16, 32, 64
+- varuint for unsigned varints
 - bool
+- 'buf:length' for fixed size buffers
 - 'char:length' for fixed size strings
-- 'varchar:maxlength' for variable length strings (maxlength can be omitted)
+- 'varchar:maxlength' for variable size strings
+- 'varbuf:maxlength' for variable size buffers
 
 ## To-Do
-- Add support for varints
+- Add support for varuints
 - Enable packing of bools from enums
 - Improve performance for enums

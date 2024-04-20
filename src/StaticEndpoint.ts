@@ -2,17 +2,7 @@ import Code from './util/Code.js'
 import { addFieldsStatic } from './util/addFields.js'
 import getObjectStructure from './util/getObjectStructure.js'
 import { Buffer, ReadonlyBuffer, ReadonlyUint8Array } from './util/Buffer.js'
-
-const INT_TYPES = {
-    'uint8': 1,
-    'int8': -1,
-    'uint16': 2,
-    'int16': -2,
-    'uint32': 4,
-    'int32': -4,
-    'uint64': 8,
-    'int64': -8
-}
+import { findLength } from './util/varuint.js'
 
 type ValueType<T> = T[keyof T]
 
@@ -25,6 +15,7 @@ type IntTypes = {
     int32: number
     uint64: bigint
     int64: bigint
+    // varuint: number
 }
 
 type BaseDataTypes = {
@@ -141,16 +132,19 @@ const enum INTERNAL_TYPES {
     VARCHAR,
     BOOL,
     NONE,
-    INT
+    INT,
+    VARUINT
 }
 
 
 const processType = (def: keyof InputDataTypes | 'none') => {
-    const [type, bytes] = def.split(':')
+    const defMatch = /^([a-zA-Z]+):?([0-9]+)?$/.exec(def)
+    if (defMatch === null) throw new Error(`Invalid type: ${def.toString()}`)
+    const [,type, bytes] = defMatch
     switch (type) {
         case 'buf':
         case 'char': {
-            if (!bytes || !bytes.match(/^[0-9]+$/)) throw new Error('Must specify length in bytes')
+            if (!bytes) throw new Error('Must specify length in bytes')
             const size = parseInt(bytes)
             return {
                 type: type === 'buf' ? INTERNAL_TYPES.BUF : INTERNAL_TYPES.CHAR,
@@ -160,7 +154,6 @@ const processType = (def: keyof InputDataTypes | 'none') => {
         case 'varbuf':
         case 'varchar': {
             if (bytes) {
-                if (!bytes.match(/^[0-9]+$/)) throw new Error('Must specify max length in bytes')
                 const maxSize = parseInt(bytes)
                 if (maxSize < 0) throw new Error('Max size must be positive integer')
                 if (maxSize > 1 << 16) throw new Error('Max string length is 65536')
@@ -188,14 +181,24 @@ const processType = (def: keyof InputDataTypes | 'none') => {
                 size: 0
             }
         }
-        default: {
-            if (!(type in INT_TYPES)) throw new Error('Invalid type')
-            const size = INT_TYPES[type as keyof typeof INT_TYPES]
+        case 'varuint': {
+            throw new Error('Not implemented yet')
+            return {
+                type: INTERNAL_TYPES.VARUINT,
+                size: 0
+            }   
+        }
+        case 'int':
+        case 'uint': {
+            if (!bytes) throw new Error('Must specify length in bytes')
+            const size = parseInt(bytes) >>> 3
             return {
                 type: INTERNAL_TYPES.INT,
-                size
+                size: type === 'uint' ? size : size * -1
             }
-                          
+        }
+        default: {
+            throw new Error(`Unknown type ${type}`)            
         }
     }
 }
@@ -223,6 +226,19 @@ class Args  {
     varArgs = new Array<string | Args>()
 }
 
+const FieldList = Array<{varName: string, size: number, validate: boolean}>
+
+class Fields {
+    buf = new FieldList()
+    varbuf = new FieldList()
+    char = new FieldList()
+    varchar = new FieldList()
+    int = new FieldList()
+    varuint = new FieldList()
+    bool = new FieldList()
+    none = new FieldList()
+    enum: {idName: string, valueName: string, cases: EnumCase[], mappedIds: boolean}[] = []
+}
 
 class DefinitionInfo {
     constructor (validate: boolean) {
@@ -233,6 +249,7 @@ class DefinitionInfo {
     fields = new Fields()
     args = new Args()
     sizeCalc = new Array<string>()
+    varuintSizeCalc = new Array<string>()
     fixedSize = 0
     state = {
         valueIndex: 0
@@ -253,6 +270,7 @@ class DefinitionInfo {
     sub () {
         const sub = new DefinitionInfo(this.validate)
         sub.state = this.state
+        // sub.varuintSizeCalc = this.varuintSizeCalc
         sub.validators = this.validators
         return sub
     }
@@ -330,7 +348,7 @@ const processField = (sub: keyof InputDataTypes, name: string, parent: Args, def
     const { type, size } = processType(sub)
     const varName = defInfo.getVarName()
     parent.args.push(`${name}: ${varName}`)
-    if (type === INTERNAL_TYPES.VARBUF || type === INTERNAL_TYPES.VARCHAR) {
+    if (type === INTERNAL_TYPES.VARBUF || type === INTERNAL_TYPES.VARCHAR || type === INTERNAL_TYPES.VARUINT) {
         parent.varArgs.push(`${name}: ${varName}`)
     }
     const validate = defInfo.validate && test !== null
@@ -342,7 +360,7 @@ const processField = (sub: keyof InputDataTypes, name: string, parent: Args, def
         size,
         validate
     }
-    defInfo.fixedSize += size
+    defInfo.fixedSize += Math.abs(size)
     const { fields } = defInfo
     switch (type) {
         case INTERNAL_TYPES.INT: {
@@ -375,6 +393,13 @@ const processField = (sub: keyof InputDataTypes, name: string, parent: Args, def
             fields.varchar.push(field)
             break
         }
+        case INTERNAL_TYPES.VARUINT: {
+            const sizeVarName = `${varName}_len`
+            defInfo.varuintSizeCalc.push(`const ${sizeVarName} = getViLen(${varName})`)
+            defInfo.sizeCalc.push(sizeVarName)
+            fields.varuint.push(field)
+            break
+        }
     }
 }
 
@@ -396,23 +421,17 @@ const processDef = (def: DataDefintion, parent: Args, defInfo: DefinitionInfo) =
     }
 }
 
-
-
-const FieldList = Array<{varName: string, size: number, validate: boolean}>
-
-class Fields {
-    buf = new FieldList()
-    varbuf = new FieldList()
-    char = new FieldList()
-    varchar = new FieldList()
-    int = new FieldList()
-    bool = new FieldList()
-    none = new FieldList()
-    enum: {idName: string, valueName: string, cases: EnumCase[], mappedIds: boolean}[] = []
-}
-
-
+/**
+ * Class representing a static endpoint.
+ *
+ * @template T The type of the definition for this endpoint.
+ */
 class StaticEndpoint<T extends Defintion> {
+    /**
+     * Creates a new static endpoint.
+     *
+     * @param definition - The definition for this endpoint.
+     */
     constructor (definition: T) {
         this.channel = definition.channel
         const validate = definition.validate !== false
@@ -423,7 +442,16 @@ class StaticEndpoint<T extends Defintion> {
         }
         // console.dir(defInfo, { depth: null })
         const objTemplate = getObjectStructure(args.args)
-        const encodeCode = new Code(`return ((${objTemplate.length > 0 ? `{${objTemplate}}` : ''}) => {`)
+        const encodeCode = new Code()
+        if (defInfo.varuintSizeCalc.length > 0) {
+            encodeCode.add('const getViLen = this.getViLen')
+        }
+        encodeCode.add(`return ((${objTemplate.length > 0 ? `{${objTemplate}}` : ''}) => {`)
+
+        encodeCode.indent++
+        for (const calc of defInfo.varuintSizeCalc) {
+            encodeCode.add(calc)
+        }
 
         const decodeCode = new Code()
         for (const name in defInfo.validators) {
@@ -431,7 +459,6 @@ class StaticEndpoint<T extends Defintion> {
         }
         decodeCode.add('return ((input) => {')
         
-        encodeCode.indent++
         decodeCode.indent++
         
         decodeCode.add('const buffer = ArrayBuffer.isView(input) ? this.B.wrap(input) : input')
@@ -449,8 +476,10 @@ class StaticEndpoint<T extends Defintion> {
                 cases.forEach(({ id, idString, nested, def }) => {
                     const encodeCase = encodeSwitch.case(`${idString ?? id}`)
                     if (nested) {
-                        const objectStructure = getObjectStructure(def.args.varArgs)
-                        encodeCase.add(`const {${objectStructure}} = ${valueName}`)
+                        if (def.args.varArgs.length > 0) {
+                            const objectStructure = getObjectStructure(def.args.varArgs)
+                            encodeCase.add(`const {${objectStructure}} = ${valueName}`)
+                        }
                         encodeCase.add(`bufferLength += ${def.getBufferSize()}`)
                     } else {
                         const { type, size } = def
@@ -488,7 +517,7 @@ class StaticEndpoint<T extends Defintion> {
             }
 
         } else {
-            if (fields.varchar.length > 0 || fields.varbuf.length > 0 || definition.allocateNew) {
+            if (defInfo.sizeCalc.length > 0 || definition.allocateNew) {
                 encodeCode.add(`const buffer = this.B.alloc(${bufferSize})`)
                 if (definition.channel !== undefined) {
                     encodeCode.add(`buffer.setUint8(${definition.channel}, ${bufferOffset++})`)
@@ -515,10 +544,10 @@ class StaticEndpoint<T extends Defintion> {
         decodeCode.indent--
         decodeCode.add('})')
 
-        // console.log(encodeCode.toString())
-        // console.log(decodeCode.toString())
-
-        this.encode = encodeCode.compile({
+        this.encode = encodeCode.compile(defInfo.varuintSizeCalc.length > 0 ? {
+            B: Buffer,
+            getViLen: findLength,
+        } : {
             B: Buffer,
         })
         this.decode = decodeCode.compile(validate ? {
@@ -529,10 +558,19 @@ class StaticEndpoint<T extends Defintion> {
         })
     }
 
+    /**
+     * The channel id of the endpoint
+     */
     channel: T['channel']
 
+    /**
+     * Encodes data into a buffer
+     */
     readonly encode: (data: T['data'] extends DataDefintion ? ProtoObject<T, true> : void) => T['allocateNew'] extends true ? Buffer : ReadonlyBuffer<ReadonlyUint8Array>
 
+    /**
+     * Decodes data from a buffer
+     */
     readonly decode: (buffer: BufferLike) => T['data'] extends DataDefintion ? (
         T['validate'] extends false ? ProtoObject<T, false> : (
             HasExtended<T['data']> extends never ? ProtoObject<T, false> : ProtoObject<T, false> | null
@@ -551,16 +589,6 @@ type HasExtended<T extends FieldTypes> = T extends keyof InputDataTypes ? never 
 type EnumHasExtended<T extends EnumDefintion> = ValueType<{
     [key in keyof T]: T[key] extends FieldTypes ? HasExtended<T[key]> : never
 }>
-
-const d = {
-    test: 'varchar',
-    num: {
-        num: {
-            num: 'uint16'
-        }
-    },
-} satisfies DataDefintion
-type a = HasExtended<typeof d>
 
 // type EnumHasExtended<T extends EnumDefintion> = T[keyof T] extends FieldTypes ? HasExtended<T[keyof T]> : never
 

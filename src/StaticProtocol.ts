@@ -10,6 +10,14 @@ type StaticProtocolType <T extends ProtocolDefintion, R> = R extends true ? {
     [name in keyof T]: StaticEndpoint<T[name] & { channel: number }>
 }
 
+
+/**
+ * Creates a static protocol based on the provided definition.
+ *
+ * @param definition - The protocol definition.
+ * @param raw - Raw protocols dont have add a channel id for each endpoint.
+ * @returns The static protocol Object.
+ */
 function StaticProtocol <T extends ProtocolDefintion, R extends boolean> (definition: T, raw: R): StaticProtocolType<T, R> {
     if (raw) {
         const mapped = Object.entries(definition).map(([name, def]) => [name, new StaticEndpoint(def)])

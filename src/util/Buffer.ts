@@ -1,4 +1,5 @@
 import ReadonlyUint8Array from "./ReadonlyUint8Array.js"
+import { findLength } from "./varuint.js"
 
 const encoder = new TextEncoder()
 const decoder = new TextDecoder()
@@ -66,7 +67,7 @@ class Buffer {
 
     setUint16 (value: number, offset = 0) {
         this.bufferView[offset] = value
-        this.bufferView[offset + 1] = (value >> 8)
+        this.bufferView[offset + 1] = (value >>> 8)
     }
 
     getUint16 (offset = 0) {
@@ -83,9 +84,9 @@ class Buffer {
 
     setUint32 (value: number, offset = 0) {
         this.bufferView[offset] = value
-        this.bufferView[offset + 1] = (value >> 8)
-        this.bufferView[offset + 2] = (value >> 16)
-        this.bufferView[offset + 3] = (value >> 24)
+        this.bufferView[offset + 1] = (value >>> 8)
+        this.bufferView[offset + 2] = (value >>> 16)
+        this.bufferView[offset + 3] = (value >>> 24)
     }
 
     getUint32 (offset = 0) {
@@ -103,14 +104,14 @@ class Buffer {
     setUint64 (value: bigint, offset = 0) {
         const low = Number(value & 0xffffffffn)
         this.bufferView[offset] = low
-        this.bufferView[offset + 1] = (low >> 8)
-        this.bufferView[offset + 2] = (low >> 16)
-        this.bufferView[offset + 3] = (low >> 24)
+        this.bufferView[offset + 1] = (low >>> 8)
+        this.bufferView[offset + 2] = (low >>> 16)
+        this.bufferView[offset + 3] = (low >>> 24)
         const high = Number((value >> 32n) & 0xffffffffn)
         this.bufferView[offset + 4] = high
-        this.bufferView[offset + 5] = (high >> 8)
-        this.bufferView[offset + 6] = (high >> 16)
-        this.bufferView[offset + 7] = (high >> 24)
+        this.bufferView[offset + 5] = (high >>> 8)
+        this.bufferView[offset + 6] = (high >>> 16)
+        this.bufferView[offset + 7] = (high >>> 24)
     }
 
     getUint64 (offset = 0) {
@@ -125,6 +126,26 @@ class Buffer {
 
     getInt64 (offset = 0) {
         return this.getUint64(offset) - INT_64_OFFSET
+    }
+
+    setVarint (value: number, offset = 0, length: ReturnType<typeof findLength>) {
+        const end = length + offset - 1
+        for (let i = offset; i < end; i++) {
+            this.bufferView[i] = (value & 0x7f | 0x80)
+            value >>>= 7
+        }
+        this.bufferView[end] = (value & 0x7f)
+    }
+
+    getVarint (offset = 0) {
+        let value = 0
+        let shift = 0
+        while (true) {
+            const byte = this.bufferView[offset++]
+            value = (value | (byte & 0x7f) << shift) >>> 0
+            if (!(byte & 0x80)) return { value, end: offset }
+            shift += 7
+        }
     }
 
     static alloc (length: number) {
@@ -196,6 +217,17 @@ class ReadonlyBuffer<T extends ReadonlyUint8Array | Uint8Array> {
 
     getInt64 (offset = 0) {
         return this.getUint64(offset) - INT_64_OFFSET
+    }
+
+    getVarint (offset = 0) {
+        let value = 0
+        let shift = 0
+        while (true) {
+            const byte = this.bufferView[offset++]
+            value = (value | (byte & 0x7f) << shift) >>> 0
+            if (!(byte & 0x80)) return { value, end: offset }
+            shift += 7
+        }
     }
 
     static wrap<T extends ReadonlyUint8Array | Uint8Array> (bufferView: T) {

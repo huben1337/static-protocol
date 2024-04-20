@@ -1,6 +1,6 @@
 import { StaticProtocol, ProtocolDefintion, Enum } from '../index.js'
 
-const protoDef = {
+const proto = StaticProtocol({
     test: {
         data: {
             name: {
@@ -17,9 +17,8 @@ const protoDef = {
             num: 'uint16',
         }
     }
-} satisfies ProtocolDefintion
+}, false)
 
-const proto = StaticProtocol(protoDef, false)
 const buffer = proto.test.encode({ name: 'test', age: { id: 0, value: 0 }, test: true, num: 1234 })
 const decoded = proto.test.decode(buffer)
 

@@ -3,6 +3,13 @@ import Code from './util/Code.js'
 import {  StaticProtocolType } from './StaticProtocol.js'
 import { BufferLike } from './StaticEndpoint.js'
 
+/**
+ * Creates a function to handle the endpoints of the static protocol.
+ * 
+ * @param proto - The static protocol Object .
+ * @param endpointHandlers - Handler functions for the different endpoints.
+ * @return The handler function.
+ */
 function StaticHandler <T extends StaticProtocolType<any, boolean>> (proto: T, endpointHandlers: { [endpoint in keyof T]?: (data: ReturnType<T[endpoint]['decode']>) => void }) {
     const handleCode = new Code()
     const entries = Object.entries(endpointHandlers)
@@ -31,7 +38,7 @@ function StaticHandler <T extends StaticProtocolType<any, boolean>> (proto: T, e
     return handleCode.compile({
         h: endpointHandlers,
         p: proto
-    }) as (buffer: BufferLike) => void
+    }) as (buf: BufferLike) => void
 }
 
 export { StaticHandler }
