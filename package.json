@@ -4,7 +4,9 @@
   "type": "module",
   "description": "Utility for serializing and deserializing data efficiently, based on a schema definition.",
   "main": "dist/index.js",
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "demo": "tsc && node dist/examples/demo.js"
   },
@@ -15,6 +17,7 @@
   },
   "license": "ISC",
   "devDependencies": {
+    "esbuild": "^0.20.2",
     "typescript": "^5.4.5"
   }
 }
