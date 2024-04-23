@@ -1,4 +1,4 @@
-import { StaticProtocol, ProtocolDefintion, Enum } from '../index.js'
+import { StaticProtocol, Enum } from '../index.js'
 
 const proto = StaticProtocol({
     user: {
@@ -24,6 +24,6 @@ const proto = StaticProtocol({
             text: 'varchar:5000'
         }
     }
-}, false)
+})
 
 export default proto

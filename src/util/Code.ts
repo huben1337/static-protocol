@@ -1,9 +1,9 @@
 const CODE_INDENT_SPACES = 4
 const CODE_INDENT = ' '.repeat(CODE_INDENT_SPACES)
 
-function compile (code: string) {
-    return eval(`(() => { ${code} })`)()
-}
+// function compile (code: string) {
+//     return eval(`(() => { ${code} })`)()
+// }
 
 type CodeLike = Switch | Code | string
 
@@ -74,7 +74,8 @@ class Code {
 
     compile (context = {}) {
         // console.log(this.toString())
-        return compile.call(context, this.toString())
+        // return compile.call(context, this.toString())
+        return Function.call(null, this.toString()).call(context)
     }
 }
 

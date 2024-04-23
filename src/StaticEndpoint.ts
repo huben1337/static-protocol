@@ -59,8 +59,6 @@ type DataDefintion = {
     [field: string]: FieldTypes
 }
 
-const isEnum = Symbol('isEnum')
-
 type EnumFieldTypes = BaseFieldTypes | 'none'
 
 type EnumDefintion = {
@@ -138,6 +136,7 @@ const enum INTERNAL_TYPES {
     VARCHAR,
     BOOL,
     NONE,
+    UINT,
     INT,
     VARUINT
 }
