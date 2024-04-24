@@ -1,6 +1,6 @@
-import { StaticEndpoint } from "../src/StaticEndpoint.js";
+import { StaticEndpoint } from "../src/StaticEndpoint.js"
 
-const endpoint = new StaticEndpoint({
+const endpoint = StaticEndpoint({
     data: {
         picture: 'varbuf:5000',
         info: {

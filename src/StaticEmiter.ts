@@ -1,5 +1,5 @@
 import { StaticProtocolType } from './StaticProtocol.js'
-import { FullyReadonlyBuffer } from './util/Buffer.js';
+import { FullyReadonlyBuffer } from './util/Buffer.js'
 
 
 /**
@@ -10,7 +10,7 @@ import { FullyReadonlyBuffer } from './util/Buffer.js';
  * @param mask - The list of endpoints to add to the emitter. If not provided, all endpoints will be added.
  * @return The static emitter object.
  */
-function StaticEmiter <T extends StaticProtocolType<any, boolean>, M extends Array<keyof T> | undefined> (proto: T, emiterCallback: (data: FullyReadonlyBuffer) => any, mask?: M) {
+const StaticEmiter = <T extends StaticProtocolType<any, boolean>, M extends Array<keyof T> | undefined> (proto: T, emiterCallback: (data: FullyReadonlyBuffer) => any, mask?: M) => {
     const endpoints = mask === undefined ? Object.entries(proto) : Object.entries(proto).filter(([name]) => mask.includes(name))
     const mapped = endpoints.map(([name, endpoint]) => {
         if (endpoint.encode.length === 0) {

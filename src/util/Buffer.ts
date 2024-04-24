@@ -1,4 +1,4 @@
-import ReadonlyUint8Array from "./ReadonlyUint8Array.js"
+import ReadonlyUint8Array from "../types/ReadonlyUint8Array.js"
 import { findLength } from "./varuint.js"
 
 const encoder = new TextEncoder()
@@ -242,4 +242,6 @@ class ReadonlyBuffer<T extends ReadonlyUint8Array | Uint8Array> {
 
 type FullyReadonlyBuffer = ReadonlyBuffer<ReadonlyUint8Array>
 
-export { Buffer, ReadonlyBuffer, ReadonlyUint8Array, FullyReadonlyBuffer }
+type BufferLike = Uint8Array | ReadonlyUint8Array | Buffer | ReadonlyBuffer<ReadonlyUint8Array | Uint8Array>
+
+export { Buffer, ReadonlyBuffer, ReadonlyUint8Array, FullyReadonlyBuffer, BufferLike }

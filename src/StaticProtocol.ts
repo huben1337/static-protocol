@@ -1,15 +1,19 @@
-import { StaticEndpoint, Defintion } from './StaticEndpoint.js'
+import { StaticEndpoint, StaticEndpointType } from "./StaticEndpoint.js"
+import { Definition } from "./types/definition.js"
 
 type ProtocolDefintion = {
-    [endpoint: string]: Defintion
+    [endpoint: string]: Definition
 }
 
 type StaticProtocolType <T extends ProtocolDefintion, R> = R extends true ? {
-    [name in keyof T]: StaticEndpoint<T[name]>
+    [name in keyof T]: StaticEndpointType<T[name]>
 } : {
-    [name in keyof T]: StaticEndpoint<T[name] & { channel: number }>
+    [name in keyof T]: StaticEndpointType<T[name] & { channel: number }>
 }
 
+type Entries<T> = {
+    [K in keyof T]: [K, T[K]]
+}[keyof T][]
 
 /**
  * Creates a static protocol based on the provided definition.
@@ -18,15 +22,16 @@ type StaticProtocolType <T extends ProtocolDefintion, R> = R extends true ? {
  * @param raw - Raw protocols dont have add a channel id for each endpoint.
  * @returns The static protocol Object.
  */
-function StaticProtocol <T extends ProtocolDefintion, R extends boolean = false> (definition: T, raw?: R): StaticProtocolType<T, R> {
+const StaticProtocol = <T extends ProtocolDefintion, R extends boolean = false> (definition: T, raw?: R): StaticProtocolType<T, R> => {
+    const entries = Object.entries(definition) as Entries<T>
+    type PropertyDescriptorEntries = [name: keyof T, descriptor: { value: StaticEndpointType<T[keyof T]>, enumerable: true }]
+    let mapped
     if (raw) {
-        const mapped = Object.entries(definition).map(([name, def]) => [name, new StaticEndpoint(def)])
-        return Object.fromEntries(mapped)
+        mapped = entries.map<PropertyDescriptorEntries>(([name, def]) => [name, { value: StaticEndpoint(def), enumerable: true }]) 
     } else {
         const usedChannels = new Set<number>()
-        let channelId = 0
-        const entries = Object.entries(definition)
-        const mapped = entries.map(([name, def]) => {
+        let channelId = 0  
+        mapped = entries.map<PropertyDescriptorEntries>(([name, def]) => {
             if (def.channel) {
                 if (usedChannels.has(def.channel)) throw new Error('Duplicate channel')
                 usedChannels.add(def.channel)
@@ -36,10 +41,17 @@ function StaticProtocol <T extends ProtocolDefintion, R extends boolean = false>
                 usedChannels.add(channelId)
                 def.channel = channelId
             }
-            return [name, new StaticEndpoint(def)]
+            return [name, { value: StaticEndpoint(def), enumerable: true }]
         })
-        return Object.fromEntries(mapped)
+        
     }
+    const propertyDescriptor = Object.fromEntries(mapped) as {
+        [key in keyof T]: {
+            value: StaticEndpointType<T[keyof T]>
+            enumerable: true
+        }
+    }
+    return Object.seal(Object.defineProperties<StaticProtocolType<T, R>>(Object.create(null), propertyDescriptor))
 }
 
 export { StaticProtocol, ProtocolDefintion, StaticProtocolType }

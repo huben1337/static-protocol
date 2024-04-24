@@ -1,6 +1,7 @@
-import { DefinitionInfo, INTERNAL_TYPES } from '../StaticEndpoint.js'
-import Code from './Code.js'
+import Code from '../util/Code.js'
 import getObjectStructure from './getObjectStructure.js'
+import { DefinitionInfo } from '../util/structure.js'
+import { INTERNAL_TYPES } from '../util/types.js'
 
 const intMethodFromSize = (size: number) => {
     const signed = size < 0
@@ -107,7 +108,7 @@ function addFieldsStatic (defInfo: DefinitionInfo, encodeCode: Code, decodeCode:
     })
 
     fields.enum.forEach(({ valueName }) => {
-        decodeCode.add(`let ${valueName}`)
+        decodeCode.add(`let ${valueName} = null`)
     })
     fields.enum.forEach(({ idName, valueName, cases, mappedIds }) => {
         encodeCode.add(`buffer.setUint8(${idName}, offset++)`)

@@ -1,4 +1,4 @@
-import { Args } from "../StaticEndpoint.js"
+import { Args } from "../util/structure.js"
 
 const getObjectStructure = (args: Args['args']) => {
     let result = ''
