@@ -27,14 +27,12 @@ type StaticEndpointType<T extends Definition> = {
      * Encodes data into a buffer
      * 
      * @param data - The data to encode
-     * @returns 
      */
     readonly encode: (data: T['data'] extends DataDefintion ? ProtoObject<T, true> : void) => T['allocateNew'] extends true ? Buffer : FullyReadonlyBuffer
     /**
      * Decodes data from a buffer
      * 
      * @param buffer - The buffer to decode
-     * @returns 
      */
     readonly decode: (buffer: BufferLike) => T['data'] extends DataDefintion ? (
         T['validate'] extends false ? ProtoObject<T, false> : (
@@ -64,7 +62,7 @@ const StaticEndpoint = <T extends Definition> (definition: T) => {
         decodeCode.add(`const vd${name} = this.vd.${name}.test`)
     }
 
-    addEncodeDecode(defInfo, definition.channel, definition.allocateNew, encodeCode, decodeCode, 'return')
+    addEncodeDecode(defInfo, definition.channel, definition.allocateNew, encodeCode, decodeCode, 'return', 'vd')
 
     return Object.seal(Object.defineProperties<StaticEndpointType<T>>(Object.create(null), {
         channel: {

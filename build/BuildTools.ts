@@ -1,4 +1,5 @@
 import { Enum } from "../src/StaticEndpoint.js"
+import { ProtocolDefintion } from "../src/StaticProtocol.js"
 import addEncodeDecode from "../src/codegen/addEncodeDecode.js"
 import { DataDefintion, Definition, EnumDefintion, ExtendedFieldType, InputDataTypes } from "../src/types/definition.js"
 import Code from "../src/util/Code.js"
@@ -29,6 +30,11 @@ const testValues = {
     [INTERNAL_TYPES.VARBUF]: new Uint8Array([1, 2, 3])
 
 }
+
+const buildsDir = `${import.meta.dirname}../../../../.builds`
+    if (!fs.existsSync(buildsDir)){
+        fs.mkdirSync(buildsDir)
+    }
 
 const getType = (fieldType: keyof InputDataTypes, readonly: boolean) => {
     const type = /^([a-zA-Z]+):?(?:[0-9]+)?$/.exec(fieldType)![1] as keyof typeof typeMap
@@ -76,40 +82,12 @@ const addEndpointDeclaration = <T extends Definition> (definition: T, declaratio
     return declarationCode
 }
 
-const buildEndpoint = <T extends Definition> (definition: T, name: string, transformOptions?: esbuild.TransformOptions, context?: Record<keyof any, any>) => {
-    const defInfo = new DefinitionInfo(definition.validate !== false)
-    if (definition.data) {
-        processDefinition(definition.data, defInfo.args, defInfo)
-    }
-
-    const endpointCode = new Code()
-
-    for (const [name, { test, type }] of Object.entries(defInfo.validators)) {
-        const testCode = test.toString()
-        const scopedTest = Function(`return (${testCode})`)() as (value: Parameters<typeof test>[0]) => boolean
-        try {
-            scopedTest(testValues[type as keyof typeof testValues])
-        } catch (error) {
-            throw new Error(`When building endpoints, a validators can not access values outside its scope. Validator ${name} failed with ${error}.`)
-        }
-        endpointCode.add(`const vd${name} = (${testCode})`)
-    }
-
-    const encodeCode = new Code()
-    const decodeCode = new Code()
-
-    addEncodeDecode(defInfo, definition.channel, definition.allocateNew, encodeCode, decodeCode, 'value:')
-    // Generate declarations - We want to replace this by using the TypeScript API at some point
-    const encodeBufferType = `${definition.allocateNew === true ? 'Buffer' : 'FullyReadonlyBuffer'}`
-    const declarationCode = new Code(`import { ${encodeBufferType}, BufferLike } from '${modulepath}/src/util/Buffer.js'`)
-    addEndpointDeclaration(definition, declarationCode, 'declare const endpoint:', encodeBufferType)
-    declarationCode.add(`export default endpoint`)
-
-    endpointCode.add(`export default Object.seal(Object.defineProperties(Object.create(null), {`)
+const buildEnpointObject = (endpointCode: Code, encodeCode: Code, decodeCode: Code, channel: string, assignStatement: string, end = '') => {
+    endpointCode.add(`${assignStatement} Object.seal(Object.defineProperties(Object.create(null), {`)
     endpointCode.indent++
     endpointCode.add(`channel: {`)
     endpointCode.indent++
-    endpointCode.add(`value: ${definition.channel}`)
+    endpointCode.add(`value: ${channel}`)
     endpointCode.indent--
     endpointCode.add(`},`)
     endpointCode.add(`encode: {`)
@@ -123,19 +101,119 @@ const buildEndpoint = <T extends Definition> (definition: T, name: string, trans
     endpointCode.indent--
     endpointCode.add(`}`)
     endpointCode.indent--
-    endpointCode.add(`}))`)
+    endpointCode.add(`}))${end}`)
+}
 
-    const source = `import { Buffer, ReadonlyBuffer } from "static-protocol"\n${endpointCode.toString()}`
+const buildEndpoint = <T extends Definition> (definition: T, name: string, transformOptions?: esbuild.TransformOptions, context?: Record<keyof any, any>) => {
+    const defInfo = new DefinitionInfo(definition.validate !== false)
+    if (definition.data) {
+        processDefinition(definition.data, defInfo.args, defInfo)
+    }
+
+    const endpointCode = new Code(`import { Buffer, ReadonlyBuffer } from 'static-protocol'`)
+
+    for (const [fieldName, { test, type }] of Object.entries(defInfo.validators)) {
+        const testCode = test.toString()
+        const scopedTest = Function(`return (${testCode})`)() as (value: Parameters<typeof test>[0]) => boolean
+        try {
+            scopedTest(testValues[type as keyof typeof testValues])
+        } catch (error) {
+            throw new Error(`When building endpoints, a validators can not access values outside its scope. Validator ${fieldName} failed with ${error}.`)
+        }
+        endpointCode.add(`const vd${fieldName} = (${testCode})`)
+    }
+    
+    // Generate declarations - We want to replace this by using the TypeScript API at some point
+    const encodeBufferType = `${definition.allocateNew === true ? 'Buffer' : 'FullyReadonlyBuffer'}`
+    const declarationCode = new Code(`import { ${encodeBufferType}, BufferLike } from '${modulepath}/src/util/Buffer.js'`)
+    addEndpointDeclaration(definition, declarationCode, 'declare const endpoint:', encodeBufferType)
+    declarationCode.add(`export default endpoint`)
+    
+    const encodeCode = new Code()
+    const decodeCode = new Code()
+
+    addEncodeDecode(defInfo, definition.channel, definition.allocateNew, encodeCode, decodeCode, 'value:', 'vd')
+    buildEnpointObject(endpointCode, encodeCode, decodeCode, `${definition.channel}`, 'export default')
+
+    const source = endpointCode.toString()
 
     const result = esbuild.transformSync(source, Object.assign({
         platform: 'neutral',
     }, transformOptions))
-    const buildsDir = `${import.meta.dirname}../../../../.builds`
-    if (!fs.existsSync(buildsDir)){
-        fs.mkdirSync(buildsDir)
-    }
+    
     fs.writeFileSync(`${buildsDir}/${name}.js`, result.code)
     fs.writeFileSync(`${buildsDir}/${name}.d.ts`, declarationCode.toString())
+
+}
+
+const buildProtocol = <T extends ProtocolDefintion, R extends boolean = false> (definition: T, name: string, raw?: R)=> {
+    const protoCode = new Code()
+    const protoDeclaration = new Code()
+
+    protoDeclaration.add(`declare const proto: {`)
+    protoDeclaration.indent++
+    let usesBuffer = false
+    let usesReadonlyBuffer = false
+
+    const enpointsInfos = Object.entries(definition).map(([name, endpoint]) => {
+        const readonlyBuffer = endpoint.allocateNew !== true
+        usesBuffer ||= !readonlyBuffer
+        usesReadonlyBuffer ||= readonlyBuffer
+        const encodeBufferType = `${readonlyBuffer ? 'FullyReadonlyBuffer' : 'Buffer'}` 
+        addEndpointDeclaration(endpoint, protoDeclaration, `readonly ${name}: `, encodeBufferType)
+
+        const defInfo = new DefinitionInfo(endpoint.validate !== false)
+        if (endpoint.data) {
+            processDefinition(endpoint.data, defInfo.args, defInfo)
+        }
+
+        for (const [fieldName, { test, type }] of Object.entries(defInfo.validators)) {
+            const testCode = test.toString()
+            const scopedTest = Function(`return (${testCode})`)() as (value: Parameters<typeof test>[0]) => boolean
+            try {
+                scopedTest(testValues[type as keyof typeof testValues])
+            } catch (error) {
+                throw new Error(`When building endpoints, a validators can not access values outside its scope. Validator ${fieldName} failed with ${error}.`)
+            }
+            protoCode.add(`const vd_${name}${fieldName} = (${testCode})`)
+        }
+        return {
+            name,
+            endpoint,
+            defInfo
+        }
+    })
+
+    protoCode.add(`export default Object.seal(Object.defineProperties(Object.create(null), {`)
+    protoCode.indent++
+
+    for (const { name, endpoint, defInfo } of enpointsInfos) {
+
+        protoCode.add(`${name}: {`)
+        protoCode.indent++
+
+        const encodeCode = new Code()
+        const decodeCode = new Code()
+
+        addEncodeDecode(defInfo, endpoint.channel, endpoint.allocateNew, encodeCode, decodeCode, 'value:', `vd_${name}`)
+
+        buildEnpointObject(protoCode, encodeCode, decodeCode, `${definition.channel}`, 'value:', ',')
+        protoCode.add(`enumerable: true,`)
+
+        protoCode.indent--
+        protoCode.add(`},`)
+    }
+
+    protoCode.indent--
+    protoCode.add(`}))`)
+
+    protoDeclaration.indent--
+    protoDeclaration.add(`}`)
+    protoDeclaration.add(`export default proto`)
+    protoDeclaration.insert(`import { ${usesBuffer ? (usesReadonlyBuffer ? 'Buffer, FullyReadonlyBuffer' : 'Buffer') : 'FullyReadonlyBuffer'}, BufferLike } from '${modulepath}/src/util/Buffer.js'`, 0)
+
+    fs.writeFileSync(`${buildsDir}/${name}.js`, protoCode.toString())
+    fs.writeFileSync(`${buildsDir}/${name}.d.ts`, protoDeclaration.toString())
 
 }
 
@@ -160,5 +238,4 @@ buildEndpoint({
             test: (value) => value < 255
         },
     },
-    validate: true
-}, 'test', undefined)
+}, 'test')
