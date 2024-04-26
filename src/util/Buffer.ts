@@ -26,11 +26,6 @@ class Buffer {
         return this.bufferView.subarray(start, end)
     }
 
-    getCopy () {
-        return this.bufferView.slice()
-    }
-
-
     set (buffer: Uint8Array, offset = 0) {
         this.bufferView.set(buffer, offset)
     }
