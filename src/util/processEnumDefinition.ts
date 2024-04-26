@@ -8,7 +8,7 @@ const processEnumDefinition = (def: EnumDefintion, name: string, parent: Args, d
     const usedIds = new Set<number>()
     const cases = new Array<EnumCase>(subFields.length)
     const idName = defInfo.getVarName()
-    const valueName = defInfo.getVarName()
+    const varName = defInfo.getVarName()
     let mappedId = 0
     for (let i = 0; i < subFields.length; i++) {
         const [idString, sub] = subFields[i]
@@ -17,19 +17,19 @@ const processEnumDefinition = (def: EnumDefintion, name: string, parent: Args, d
             if (id > 255) throw new Error('Enum indecies must be between 0 and 255')
             if (usedIds.has(id)) throw new Error('Enum indecies must be unique')
             usedIds.add(id)
-            cases[i] = processEnumCase(sub, id, defInfo, idString, valueName)
+            cases[i] = processEnumCase(sub, id, defInfo, idString, varName)
         } else {
             while (usedIds.has(mappedId)) {
                 mappedId++
                 if (mappedId > 255) throw new Error('Ran out of enum indecies for mapping')
             }
-            cases[i] = processEnumCase(sub, mappedId, defInfo, `'${idString}'`, valueName)
+            cases[i] = processEnumCase(sub, mappedId, defInfo, `'${idString}'`, varName)
         }
     }
-    parent.args.push(`${name}: {id: ${idName}, value: ${valueName}}`)
+    parent.args.push(`${name}: ${varName}`) // {id: ${idName}, value: ${valueName}}
     defInfo.fields.enum.push({
         idName,
-        valueName,
+        varName,
         cases,
         mappedIds: mappedId > 0
     })

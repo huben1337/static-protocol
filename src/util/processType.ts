@@ -57,8 +57,8 @@ const processType = (def: keyof InputDataTypes | 'none') => {
             if (!bytes) throw new Error('Must specify length in bytes')
             const size = parseInt(bytes) >>> 3
             return {
-                type: INTERNAL_TYPES.INT,
-                size: type === 'uint' ? size : size * -1
+                type: type === 'int' ? INTERNAL_TYPES.INT : INTERNAL_TYPES.UINT,
+                size
             }
         }
         default: {

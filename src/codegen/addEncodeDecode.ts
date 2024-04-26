@@ -5,10 +5,10 @@ import { INTERNAL_TYPES } from "../util/types.js"
 import { addFieldsStatic } from "./addFields.js"
 import getObjectStructure from "./getObjectStructure.js"
 
-const addEncodeDecode = <T extends Definition> (defInfo: DefinitionInfo, channel: T['channel'], allocateNew: T['allocateNew'], encodeCode: Code, decodeCode: Code, assignStatement = '') => {
+const addEncodeDecode = <T extends Definition> (defInfo: DefinitionInfo, channel: T['channel'], allocateNew: T['allocateNew'], encodeCode: Code, decodeCode: Code, assignStatement = '', validatorPrefix: string) => {
     const objTemplate = getObjectStructure(defInfo.args.args)
 
-    encodeCode.add(`${assignStatement} ((${objTemplate.length > 0 ? `{${objTemplate}}` : ''}) => {`)
+    encodeCode.add(`${assignStatement} ((${objTemplate.length > 0 ? `{ ${objTemplate} }` : ''}) => {`)
 
     encodeCode.indent++
     for (const calc of defInfo.varuintSizeCalc) {
@@ -30,21 +30,22 @@ const addEncodeDecode = <T extends Definition> (defInfo: DefinitionInfo, channel
     if (defInfo.fields.enum.length > 0) {
         // Determine buffer length if length is dependent on enum
         encodeCode.add(`let bufferLength = ${bufferSize}`)
-        defInfo.fields.enum.forEach(({ idName, valueName, cases }) => {
-            const encodeSwitch = encodeCode.switch(idName)
+        defInfo.fields.enum.forEach(({ varName, cases }) => {
+            const encodeSwitch = encodeCode.switch(`${varName}.id`)
             cases.forEach(({ id, idString, nested, def }) => {
                 const encodeCase = encodeSwitch.case(`${idString ?? id}`)
                 if (nested) {
                     if (def.args.varArgs.length > 0) {
                         const objectStructure = getObjectStructure(def.args.varArgs)
-                        encodeCase.add(`const {${objectStructure}} = ${valueName}`)
+                        encodeCase.add(`const {${objectStructure}} = ${varName}.value`)
                     }
                     encodeCase.add(`bufferLength += ${def.getBufferSize()}`)
                 } else {
                     const { type, size } = def
                     switch (type) {
-                        case INTERNAL_TYPES.INT: {
-                            encodeCase.add(`bufferLength += ${Math.abs(size)}`)
+                        case INTERNAL_TYPES.INT:
+                        case INTERNAL_TYPES.UINT: {
+                            encodeCase.add(`bufferLength += ${size}`)
                             break
                         }
                         case INTERNAL_TYPES.BOOL: {
@@ -61,7 +62,7 @@ const addEncodeDecode = <T extends Definition> (defInfo: DefinitionInfo, channel
                         }
                         case INTERNAL_TYPES.VARBUF:
                         case INTERNAL_TYPES.VARCHAR: {
-                            encodeCase.add(`bufferLength += ${valueName}.length + ${size}`)
+                            encodeCase.add(`bufferLength += ${varName}.value.length + ${size}`)
                             break
                         }
                         default: throw new Error(`Unknown type ${type}`)
@@ -91,7 +92,7 @@ const addEncodeDecode = <T extends Definition> (defInfo: DefinitionInfo, channel
     
     
 
-    addFieldsStatic(defInfo, encodeCode, decodeCode, bufferOffset)
+    addFieldsStatic(defInfo, encodeCode, decodeCode, bufferOffset, validatorPrefix)
     
     encodeCode.add('return buffer')
     encodeCode.indent--

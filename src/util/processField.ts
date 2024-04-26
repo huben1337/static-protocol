@@ -22,9 +22,13 @@ const processField = (sub: keyof InputDataTypes, name: string, parent: Args, def
         size,
         validate
     }
-    defInfo.fixedSize += Math.abs(size)
+    defInfo.fixedSize += size
     const { fields } = defInfo
     switch (type) {
+        case INTERNAL_TYPES.UINT: {
+            fields.uint.push(field)
+            break
+        }
         case INTERNAL_TYPES.INT: {
             fields.int.push(field)
             break

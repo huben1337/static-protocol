@@ -32,11 +32,12 @@ class Fields {
     varbuf = new FieldList()
     char = new FieldList()
     varchar = new FieldList()
+    uint = new FieldList()
     int = new FieldList()
     varuint = new FieldList()
     bool = new FieldList()
     none = new FieldList()
-    enum: {idName: string, valueName: string, cases: EnumCase[], mappedIds: boolean}[] = []
+    enum: {idName: string, varName: string, cases: EnumCase[], mappedIds: boolean}[] = []
 }
 
 class DefinitionInfo {
