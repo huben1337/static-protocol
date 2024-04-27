@@ -8,7 +8,9 @@
 - Works in Node.js and the browser 
 - Simple schema definition
 - Fully typed encoding and decoding
-- Generated and compiled code for fast performance
+- Optional validation of data during decoding
+- Zero build steps required
+- Code generated at runtime for fast performance
 - Packed bools
 
 ## Installation
@@ -49,7 +51,7 @@ const endpointSchema = {
 }
 
 /* Create enpoint using the schema */
-const endpoint = new StaticEndpoint(endpointSchema)
+const endpoint = StaticEndpoint(endpointSchema)
 ```
 
 The `data` property defines the structure of the data to be encoded and decoded. Fields can be specified to be on of the available datatypes an enum or a nested schema. For defining enums its recommended to use the Enum function wrapper. The ids for enums can be either numbers or strings. But performance will be better if they are numbers.
@@ -57,6 +59,8 @@ The `data` property defines the structure of the data to be encoded and decoded.
 The `channel` property defines the channel to be used for the endpoint. If the endpoint is used within a protocol and the channel is not defined, the channel will be generated automatically, otherwise no channel will be used. The value must be an integer between 0 and 255.
 
 The `allocateNew` property defines if the endpoint should allocate a new buffer each time data is encoded. This is useful if you want to modify the data after it has been encoded.
+
+If `validate` is set to false the validation functions will be skipped during decoding.
 
 A schema for a whole protocol can look something like this:
 ```ts
@@ -89,7 +93,6 @@ The second argument to `StaticProtocol` is optional and indicates if the protoco
 
 ## To-Do
 - Add support for varints
-- Improve performance for enums
 - Add a way to validate fields with respect to values ​​of other fields.
 
 ## Contributing
