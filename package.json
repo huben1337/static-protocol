@@ -8,7 +8,8 @@
     "dist"
   ],
   "scripts": {
-    "demo": "tsc && node dist/examples/demo.js"
+    "build": "tsc -b",
+    "demo": "tsc -p tsconfig.neutral.json && node dist/examples/demo.js"
   },
   "author": "huben1337",
   "repository": {
