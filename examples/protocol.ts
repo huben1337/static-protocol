@@ -1,4 +1,4 @@
-import { StaticProtocol, Enum } from '../index.js'
+import { StaticProtocol, Enum, List } from '../index.js'
 
 const proto = StaticProtocol({
     user: {
@@ -17,6 +17,7 @@ const proto = StaticProtocol({
             }),
             ageVerified: 'bool',
             userId: 'uint16',
+            tags: List('varchar'),
         }
     },
     note: {

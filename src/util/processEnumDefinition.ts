@@ -2,13 +2,12 @@ import { EnumDefintionInternal } from "../types/definition.js"
 import processEnumCase from "./processEnumCase.js"
 import { Args, DefinitionInfo, EnumCase } from "./structure.js"
 
-const processEnumDefinition = (definition: EnumDefintionInternal, name: string, parent: Args, defInfo: DefinitionInfo) => {
+const processEnumDefinition = (definition: EnumDefintionInternal, varName: string, defInfo: DefinitionInfo) => {
     const subFields = Object.entries(definition.def)
     // if (subFields.some((value) => value.match(/^[^0-9]+$/))) throw new Error('Enum can only contain numbers as ids')
     const usedIds = new Set<number>()
     const cases = new Array<EnumCase>(subFields.length)
     const idName = defInfo.getVarName()
-    const varName = defInfo.getVarName()
     let mappedId = 0
     for (let i = 0; i < subFields.length; i++) {
         const [idString, sub] = subFields[i]
@@ -26,7 +25,6 @@ const processEnumDefinition = (definition: EnumDefintionInternal, name: string, 
             cases[i] = processEnumCase(sub, mappedId, defInfo, `'${idString}'`, varName)
         }
     }
-    parent.args.push(`${name}: ${varName}`) // {id: ${idName}, value: ${valueName}}
     defInfo.fields.enum.push({
         idName,
         varName,

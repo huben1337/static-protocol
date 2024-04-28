@@ -24,7 +24,7 @@ console.log('\nDecoded data from endpoint:', decoded)
 /* Example protocol usage */
 {
 
-const buffer = proto.user.encode({ name: 'test', age: { id: 0, value: 23 }, ageVerified: true, userId: 1234 })
+const buffer = proto.user.encode({ name: 'test', age: { id: 0, value: 23 }, ageVerified: true, userId: 1234, tags: ['cringe', 'funny', 'silly'] })
 
 const decoded = proto.user.decode(buffer)
 

@@ -16,7 +16,9 @@ const processDefinition = (def: DataDefintion, parent: Args, defInfo: Definition
              parent.args.push(`${name}: ${varName}`)
             processArrayDefinition((sub as ArrayDefintionInternal), varName, defInfo)
         } else if (('isEnum' in sub) && sub.isEnum === true) {
-            processEnumDefinition((sub as EnumDefintionInternal), name, parent, defInfo)
+            const varName = defInfo.getVarName()
+            parent.args.push(`${name}: ${varName}`)
+            processEnumDefinition((sub as EnumDefintionInternal), varName, defInfo)
         } else {
             const child = new Args(name)
             processDefinition(sub as DataDefintion, child, defInfo)

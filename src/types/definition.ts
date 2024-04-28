@@ -49,7 +49,7 @@ type ExtendedFieldType = ValueType<{
 
 type BaseFieldTypes = keyof InputDataTypes | DataDefintion | ExtendedFieldType | ArrayDefintionInternal
 
-type FieldTypes = BaseFieldTypes | EnumDefintionInternal | ArrayDefintionInternal
+type FieldTypes = BaseFieldTypes | EnumDefintionInternal
 
 type DataDefintion = { 
     [field: string]: FieldTypes
@@ -67,8 +67,10 @@ type EnumDefintionInternal = {
     isEnum: true
 }
 
+type ArrayFieldTypes = BaseFieldTypes | EnumDefintionInternal
+
 type ArrayDefintionInternal = {
-    def: BaseFieldTypes
+    def: ArrayFieldTypes
     long: boolean
     isArray: true
 }
@@ -135,4 +137,4 @@ type EnumHasExtended<T extends EnumDefintion> = ValueType<{
     [key in keyof T]: T[key] extends FieldTypes ? HasExtended<T[key]> : never
 }>
 
-export type { InputDataTypes, OutputDataTypes, Definition, FieldTypes, ExtendedFieldType, DataDefintion, EnumDefintion, EnumDefintionInternal, EnumFieldTypes, EnumTypeInput, EnumTypeOutput, ProtoObject, HasExtended, EnumHasExtended, ArrayDefintionInternal, BaseFieldTypes }
+export type { InputDataTypes, OutputDataTypes, Definition, FieldTypes, ExtendedFieldType, DataDefintion, EnumDefintion, EnumDefintionInternal, EnumFieldTypes, EnumTypeInput, EnumTypeOutput, ProtoObject, HasExtended, EnumHasExtended, ArrayDefintionInternal, ArrayFieldTypes, BaseFieldTypes }

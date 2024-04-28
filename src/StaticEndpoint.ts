@@ -1,6 +1,6 @@
 import { Buffer, BufferLike, FullyReadonlyBuffer, ReadonlyBuffer } from './util/Buffer.js'
 import { findLength } from './util/varuint.js'
-import { BaseFieldTypes, DataDefintion, Definition, EnumDefintion, HasExtended, ProtoObject } from './types/definition.js'
+import { ArrayFieldTypes,  DataDefintion, Definition, EnumDefintion, HasExtended, ProtoObject } from './types/definition.js'
 import { DefinitionInfo } from './util/structure.js'
 import processDefinition from './util/processDefinition.js'
 import addEncodeDecode from './codegen/addEncodeDecode.js'
@@ -23,7 +23,7 @@ const Enum = <T extends EnumDefintion>(def: T) => {
  * 
  * @param def - Array definition
  */
-const List = <T extends BaseFieldTypes>(def: T, maxSize = 256) => {
+const List = <T extends ArrayFieldTypes>(def: T, maxSize = 256) => {
     return {
         def,
         long: maxSize > 256,

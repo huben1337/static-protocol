@@ -25,7 +25,7 @@ A comprehensive overview of the usage can be found in the examples folder. You c
 npm run demo
 ```
 
-### Schema
+### Endpoint Schema
 A schema for a single endpoint can look something like this:
 ```ts
 const endpointSchema = {
@@ -44,6 +44,7 @@ const endpointSchema = {
         }),
         ageVerified: 'bool',
         userId: 'uint16',
+        tags: List('varchar'),
     },
     allocateNew: true,
     validate: false,
@@ -53,15 +54,23 @@ const endpointSchema = {
 /* Create enpoint using the schema */
 const endpoint = StaticEndpoint(endpointSchema)
 ```
+#### `data`
+The `data` property defines the structure of the data to be encoded and decoded. Fields can be specified to be on of the available datatypes a nested schema, an array or an enum.
 
-The `data` property defines the structure of the data to be encoded and decoded. Fields can be specified to be on of the available datatypes an enum or a nested schema. For defining enums its recommended to use the Enum function wrapper. The ids for enums can be either numbers or strings. But performance will be better if they are numbers.
+For defining enums the Enum wrapper function is used. The ids for enums can be either numbers or strings. But performance will be better if they are numbers. The values can be defined like `data` but nested enums are not supported.
 
+For defining Arrays the List wrapper function is used. The item type can be defined like `data`.
+
+#### `channel`
 The `channel` property defines the channel to be used for the endpoint. If the endpoint is used within a protocol and the channel is not defined, the channel will be generated automatically, otherwise no channel will be used. The value must be an integer between 0 and 255.
 
+#### `allocateNew`
 The `allocateNew` property defines if the endpoint should allocate a new buffer each time data is encoded. This is useful if you want to modify the data after it has been encoded.
 
+#### `validate`
 If `validate` is set to false the validation functions will be skipped during decoding.
 
+### Protocol Schema
 A schema for a whole protocol can look something like this:
 ```ts
 const protocolSchema = {
