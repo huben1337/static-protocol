@@ -41,6 +41,20 @@ function addFieldsStatic (defInfo: DefinitionInfo, encodeCode: Code, decodeCode:
         }
         bufferOffset += size
     })
+
+    fields.array.forEach(({ varName, lenSize }) => {
+        const methodType = `Uint${lenSize * 8}`
+        encodeCode.add(`buffer.set${methodType}(${varName}.length, ${bufferOffset})`)
+        decodeCode.add(`const ${varName}_length = buffer.get${methodType}(${bufferOffset})`)
+        bufferOffset += lenSize
+    })
+    fields.nestedArray.forEach(({ varName, lenSize }) => {
+        const methodType = `Uint${lenSize * 8}`
+        encodeCode.add(`buffer.set${methodType}(${varName}.length, ${bufferOffset})`)
+        decodeCode.add(`const ${varName}_length = buffer.get${methodType}(${bufferOffset})`)
+        bufferOffset += lenSize
+    })
+
     for (let i = 0; i < fields.bool.length; i += 8) {
         const packedBools = fields.bool.slice(i, i + 8 > fields.bool.length ? fields.bool.length : i + 8)
         encodeCode.add(`buffer.setUint8(${packedBools.map(({ varName }, index) => `${varName} << ${index}`).join(' | ')}, ${bufferOffset})`)
@@ -104,6 +118,145 @@ function addFieldsStatic (defInfo: DefinitionInfo, encodeCode: Code, decodeCode:
             decodeCode.add(`if (!${validatorPrefix}${varName}(${varName})) return null`)
         } 
     })
+
+    fields.array.forEach(({ varName, def: { type, size }, validate }) => {
+        if (type === INTERNAL_TYPES.BOOL) {
+            encodeCode.add(`let i = ${varName}.length - 1`)
+            encodeCode.add(`for (; i >= 7; i -= 8) {`)
+            encodeCode.indent++
+            const packString = Array.from({ length: 8 }, (_, index) => `${varName}[i - ${index}] << ${index}`).join(' | ')
+            encodeCode.add(`buffer.setUint8(${packString}, offset++)`)
+            encodeCode.indent--
+            encodeCode.add('}')
+            encodeCode.add(`if (i >= 0) {`)
+            encodeCode.indent++
+            encodeCode.add(`let packed = 0`)
+            encodeCode.add(`for (; i >= 0; i--) {`)
+            encodeCode.indent++
+            encodeCode.add(`packed |= ${varName}[i] << i`)
+            encodeCode.indent--
+            encodeCode.add('}')
+            encodeCode.add(`buffer.setUint8(packed, offset++)`)
+            encodeCode.indent--
+            encodeCode.add('}')
+
+            decodeCode.add(`const ${varName} = new Array(${varName}_length)`)
+            decodeCode.add(`let i = ${varName}_length - 1`)
+            decodeCode.add(`for (; i >= 7; i -= 8) {`)
+            decodeCode.indent++
+            decodeCode.add(`const packed = buffer.getUint8(offset++)`)
+            decodeCode.add(`${varName}[i] = !!(packed & 1)`)        
+            for (let i = 1; i < 8; i++) {
+                decodeCode.add(`${varName}[i-${i}] = !!(packed >>> ${i} & 1)`)                
+            }
+            decodeCode.indent--
+            decodeCode.add('}')
+            decodeCode.add(`if (i >= 0) {`)
+            decodeCode.indent++
+            decodeCode.add(`const packed = buffer.getUint8(offset++)`)
+            decodeCode.add(`for (; i >= 0; i--) {`)
+            decodeCode.indent++
+            decodeCode.add(`${varName}[i] = !!(packed >>> i & 1)`)
+            decodeCode.indent--
+            decodeCode.add('}')
+            decodeCode.indent--
+            decodeCode.add('}')
+            return
+        }
+
+        encodeCode.add(`for (const entry of ${varName}) {`)
+        encodeCode.indent++
+
+        decodeCode.add(`const ${varName} = new Array(${varName}_length)`)
+        decodeCode.add(`for (let i = 0; i < ${varName}_length; i++) {`)
+        decodeCode.indent++
+        switch (type) {
+            case INTERNAL_TYPES.UINT:
+            case INTERNAL_TYPES.INT: {
+                const methodType = `${type === INTERNAL_TYPES.UINT ? 'Uint' : 'Int'}${size * 8}`
+
+                encodeCode.add(`buffer.set${methodType}(entry, offset)`)
+                encodeCode.add(`offset += ${size}`)
+
+                decodeCode.add(`const entry = buffer.get${methodType}(offset)`)
+                decodeCode.add(`offset += ${size}`)
+                break
+            }
+            case INTERNAL_TYPES.BUF: {
+                encodeCode.add(`buffer.set(entry, offset)`)
+                encodeCode.add(`offset += ${size}`)
+
+                decodeCode.add(`const entry = buffer.subarray(offset, offset += ${size})`)
+                break
+            }
+            case INTERNAL_TYPES.CHAR: {
+                encodeCode.add(`buffer.setString(entry, offset)`)
+                encodeCode.add(`offset += ${size}`)
+
+                decodeCode.add(`const entry = buffer.getString(offset, offset += ${size})`)
+                break
+            }
+            case INTERNAL_TYPES.VARBUF: {
+                const methodType = `Uint${size * 8}`
+
+                encodeCode.add(`buffer.set${methodType}(entry.length, offset)`)
+                encodeCode.add(`offset += ${size}`)
+                encodeCode.add(`buffer.set(entry, offset)`)
+                encodeCode.add(`offset += entry.length`)
+
+                decodeCode.add(`const itemLen = buffer.get${methodType}(offset)`)
+                decodeCode.add(`offset += ${size}`)
+                decodeCode.add(`const entry = buffer.subarray(offset, offset += itemLen)`)
+                break
+            }
+            case INTERNAL_TYPES.VARCHAR: {
+                const methodType = `Uint${size * 8}`
+
+                encodeCode.add(`buffer.set${methodType}(entry.length, offset)`)
+                encodeCode.add(`offset += ${size}`)
+                encodeCode.add(`buffer.setString(entry, offset)`)
+                encodeCode.add(`offset += entry.length`)
+
+                decodeCode.add(`const itemLen = buffer.get${methodType}(offset)`)
+                decodeCode.add(`offset += ${size}`)
+                decodeCode.add(`const entry = buffer.getString(offset, offset += itemLen)`)
+                break
+            }
+        }
+        if (validate) {
+            decodeCode.add(`if (!${validatorPrefix}${varName}(entry)) return null`)
+        }
+        decodeCode.add(`${varName}[i] = entry`)
+
+        encodeCode.indent--
+        encodeCode.add(`}`)
+        decodeCode.indent--
+        decodeCode.add(`}`)
+    })
+
+    fields.nestedArray.forEach(({ varName, def, objectStructure }) => {
+
+        encodeCode.add(`for (const {${objectStructure}} of ${varName}) {`)
+        encodeCode.indent++
+
+        decodeCode.add(`const ${varName} = new Array(${varName}_length)`)
+        decodeCode.add(`for (let i = 0; i < ${varName}_length; i++) {`)
+        decodeCode.indent++
+
+        console.log(def)
+
+        addFieldsDynamic(def, encodeCode, decodeCode, validatorPrefix)
+
+        decodeCode.add(`${varName}[i] = {${objectStructure}}`)
+
+        encodeCode.indent--
+        encodeCode.add(`}`)
+
+        decodeCode.indent--
+        decodeCode.add(`}`)
+        // addFieldsDynamic(def, encodeCode, decodeCode, validatorPrefix)
+    })
+
     fields.varuint.forEach(({ varName }) => {
         encodeCode.add(`buffer.setVarint(${varName}, offset, ${varName}_len)`)
         encodeCode.add(`offset += ${varName}_len`)
@@ -275,6 +428,7 @@ function addFieldsDynamic (defInfo: DefinitionInfo, encodeCode: Code, decodeCode
     }
     if (defInfo.sizeCalc.length === 0 && fields.enum.length === 0) return
     fields.varchar.forEach(({ varName, size, validate }) => {
+        console.log(varName, size, validate)
         if (size === 2) {
             encodeCode.add(`buffer.setUint16(${varName}.length, offset)`)
             encodeCode.add(`offset += 2`)

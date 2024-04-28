@@ -1,4 +1,4 @@
-import { ExtendedFieldType, InputDataTypes } from "../types/definition.js"
+import { ExtendedFieldType } from "../types/definition.js"
 import processType from "./processType.js"
 import { INTERNAL_TYPES } from "./types.js"
 
@@ -37,6 +37,8 @@ class Fields {
     varuint = new FieldList()
     bool = new FieldList()
     none = new FieldList()
+    array: {varName: string, def: ReturnType<typeof processType>, lenSize: number, validate: boolean}[] = []
+    nestedArray: {varName: string, def: DefinitionInfo, objectStructure: string, lenSize: number}[] = []
     enum: {idName: string, varName: string, cases: EnumCase[], mappedIds: boolean}[] = []
 }
 
@@ -58,7 +60,7 @@ class DefinitionInfo {
         return `_${this.state.valueIndex++}`
     }
     getBufferSize () {
-        const fixedSize = this.fixedSize + Math.ceil(this.fields.bool.length / 8)
+        const fixedSize = this.fixedSize + ((this.fields.bool.length + 7) >>> 3)
         if (this.sizeCalc.length > 0) {
             const sizeCalcString = this.sizeCalc.join(' + ')
             return fixedSize > 0 ? `${fixedSize}${` + ${sizeCalcString} `}` : sizeCalcString

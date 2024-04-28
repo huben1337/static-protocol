@@ -1,6 +1,6 @@
-import { Buffer, BufferLike, FullyReadonlyBuffer, ReadonlyBuffer, ReadonlyUint8Array } from './util/Buffer.js'
+import { Buffer, BufferLike, FullyReadonlyBuffer, ReadonlyBuffer } from './util/Buffer.js'
 import { findLength } from './util/varuint.js'
-import { DataDefintion, Definition, EnumDefintion, HasExtended, ProtoObject } from './types/definition.js'
+import { BaseFieldTypes, DataDefintion, Definition, EnumDefintion, HasExtended, ProtoObject } from './types/definition.js'
 import { DefinitionInfo } from './util/structure.js'
 import processDefinition from './util/processDefinition.js'
 import addEncodeDecode from './codegen/addEncodeDecode.js'
@@ -15,6 +15,19 @@ const Enum = <T extends EnumDefintion>(def: T) => {
     return {
         def,
         isEnum: true as const
+    }
+}
+
+/**
+ * Specifies an array.
+ * 
+ * @param def - Array definition
+ */
+const List = <T extends BaseFieldTypes>(def: T, maxSize = 256) => {
+    return {
+        def,
+        long: maxSize > 256,
+        isArray: true as const
     }
 }
 
@@ -99,4 +112,4 @@ type DecodeFunction<T extends Definition> = (buffer: BufferLike) => ProtoObject<
 type DecodeFunctionNoRet = (buffer: BufferLike) => void
 */
 
-export { StaticEndpoint, StaticEndpointType, Enum }
+export { StaticEndpoint, StaticEndpointType, Enum, List }

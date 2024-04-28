@@ -49,7 +49,7 @@ type ExtendedFieldType = ValueType<{
 
 type BaseFieldTypes = keyof InputDataTypes | DataDefintion | ExtendedFieldType
 
-type FieldTypes = BaseFieldTypes | EnumDefintionInternal 
+type FieldTypes = BaseFieldTypes | EnumDefintionInternal  | ArrayDefintionInternal
 
 type DataDefintion = { 
     [field: string]: FieldTypes
@@ -67,16 +67,10 @@ type EnumDefintionInternal = {
     isEnum: true
 }
 
-/**
- * Specifies an enum.
- * 
- * @param def - Enum definition: `{ [id: string | number]: type }`
- */
-function Enum <T extends EnumDefintion>(def: T) {
-    return {
-        def,
-        isEnum: true as const
-    }
+type ArrayDefintionInternal = {
+    def: BaseFieldTypes
+    long: boolean
+    isArray: true
 }
 
 
@@ -85,20 +79,24 @@ type SubOutput<T> = T extends FieldTypes ? DefinedTypeOutput<T> : never
 
 type DefinedTypeInput<T extends FieldTypes> = T extends keyof InputDataTypes ? InputDataTypes[T] : (
     T extends ExtendedFieldType ? InputDataTypes[T['type']] : (
-        T extends EnumDefintionInternal ? EnumTypeInput<T['def']> : (
-            {
-                [key in keyof T]: SubInput<T[key]>
-            }
+        T extends ArrayDefintionInternal ? Array<DefinedTypeInput<T['def']>> : (
+            T extends EnumDefintionInternal ? EnumTypeInput<T['def']> : (
+                {
+                    [key in keyof T]: SubInput<T[key]>
+                }
+            )
         )
     )
 )
 
 type DefinedTypeOutput<T extends FieldTypes> = T extends keyof OutputDataTypes ? OutputDataTypes[T] : (
     T extends ExtendedFieldType ? OutputDataTypes[T['type']] : (
-        T extends EnumDefintionInternal ? EnumTypeOutput<T['def']> : (
-            {
-                [key in keyof T]: SubOutput<T[key]>
-            }
+        T extends ArrayDefintionInternal ? Array<DefinedTypeOutput<T['def']>> : (
+            T extends EnumDefintionInternal ? EnumTypeOutput<T['def']> : (
+                {
+                    [key in keyof T]: SubOutput<T[key]>
+                }
+            )
         )
     )
 )
@@ -137,4 +135,4 @@ type EnumHasExtended<T extends EnumDefintion> = ValueType<{
     [key in keyof T]: T[key] extends FieldTypes ? HasExtended<T[key]> : never
 }>
 
-export type { InputDataTypes, OutputDataTypes, Definition, FieldTypes, ExtendedFieldType, DataDefintion, EnumDefintion, EnumDefintionInternal, EnumFieldTypes, EnumTypeInput, EnumTypeOutput, ProtoObject, HasExtended, EnumHasExtended }
+export type { InputDataTypes, OutputDataTypes, Definition, FieldTypes, ExtendedFieldType, DataDefintion, EnumDefintion, EnumDefintionInternal, EnumFieldTypes, EnumTypeInput, EnumTypeOutput, ProtoObject, HasExtended, EnumHasExtended, ArrayDefintionInternal, BaseFieldTypes }

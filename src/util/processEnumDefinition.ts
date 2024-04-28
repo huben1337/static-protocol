@@ -1,9 +1,9 @@
-import { EnumDefintion } from "../types/definition.js"
+import { EnumDefintionInternal } from "../types/definition.js"
 import processEnumCase from "./processEnumCase.js"
 import { Args, DefinitionInfo, EnumCase } from "./structure.js"
 
-const processEnumDefinition = (def: EnumDefintion, name: string, parent: Args, defInfo: DefinitionInfo) => {
-    const subFields = Object.entries(def)
+const processEnumDefinition = (definition: EnumDefintionInternal, name: string, parent: Args, defInfo: DefinitionInfo) => {
+    const subFields = Object.entries(definition.def)
     // if (subFields.some((value) => value.match(/^[^0-9]+$/))) throw new Error('Enum can only contain numbers as ids')
     const usedIds = new Set<number>()
     const cases = new Array<EnumCase>(subFields.length)
