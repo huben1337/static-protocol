@@ -1,4 +1,5 @@
-import { DataDefintion, EnumFieldTypes, ExtendedFieldType, InputDataTypes } from "../types/definition.js"
+import { ArrayDefintionInternal, DataDefintion, EnumFieldTypes, ExtendedFieldType, InputDataTypes } from "../types/definition.js"
+import processArrayDefinition from "./processArrayDefinition.js"
 import processDefinition from "./processDefinition.js"
 import processType from "./processType.js"
 import { DefinitionInfo, EnumCase } from "./structure.js"
@@ -27,6 +28,16 @@ export default (typeDef: EnumFieldTypes, id: number, defInfo: DefinitionInfo, id
             nested: false,
             def: typeInfo,
             validate
+        }
+    } else if (('isArray' in typeDef) && typeDef.isArray === true) {
+        const subDefInfo = defInfo.sub()
+        processArrayDefinition((typeDef as ArrayDefintionInternal), `${valueName}.value`, subDefInfo)
+        return {
+            id,
+            idString,
+            nested: true,
+            def: subDefInfo,
+            validate: false
         }
     } else {
         const subDefInfo = defInfo.sub()

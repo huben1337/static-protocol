@@ -5,12 +5,10 @@ import processType from "./processType.js";
 import { Args, DefinitionInfo } from "./structure.js";
 import { INTERNAL_TYPES } from "./types.js";
 
-const processArrayDefinition = (definition: ArrayDefintionInternal, name: string, parent: Args, defInfo: DefinitionInfo) => {
+const processArrayDefinition = (definition: ArrayDefintionInternal, varName: string, defInfo: DefinitionInfo) => {
     const def = definition.def
     const lenSize = definition.long ? 2 : 1
     defInfo.fixedSize += lenSize
-    const varName = defInfo.getVarName()
-    parent.args.push(`${name}: ${varName}`)
     const isSimpleField = typeof def === 'string'
     if (isSimpleField || (('test' in def) && typeof def.test === 'function')) {
         const typeInfo = processType(isSimpleField ? def : (def as ExtendedFieldType).type)

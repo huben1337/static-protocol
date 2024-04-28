@@ -47,9 +47,9 @@ type ExtendedFieldType = ValueType<{
     }
 }>
 
-type BaseFieldTypes = keyof InputDataTypes | DataDefintion | ExtendedFieldType
+type BaseFieldTypes = keyof InputDataTypes | DataDefintion | ExtendedFieldType | ArrayDefintionInternal
 
-type FieldTypes = BaseFieldTypes | EnumDefintionInternal  | ArrayDefintionInternal
+type FieldTypes = BaseFieldTypes | EnumDefintionInternal | ArrayDefintionInternal
 
 type DataDefintion = { 
     [field: string]: FieldTypes

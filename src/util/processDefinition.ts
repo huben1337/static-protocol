@@ -12,7 +12,9 @@ const processDefinition = (def: DataDefintion, parent: Args, defInfo: Definition
         } else if (('test' in sub) && typeof sub.test === 'function') {
             processField((sub as ExtendedFieldType).type, name, parent, defInfo, sub.test)
         } else if (('isArray' in sub) && sub.isArray === true) {
-            processArrayDefinition((sub as ArrayDefintionInternal), name, parent, defInfo)
+            const varName = defInfo.getVarName()
+             parent.args.push(`${name}: ${varName}`)
+            processArrayDefinition((sub as ArrayDefintionInternal), varName, defInfo)
         } else if (('isEnum' in sub) && sub.isEnum === true) {
             processEnumDefinition((sub as EnumDefintionInternal), name, parent, defInfo)
         } else {
