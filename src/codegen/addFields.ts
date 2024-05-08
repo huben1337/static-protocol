@@ -437,7 +437,6 @@ function addFieldsDynamic (defInfo: DefinitionInfo, encodeCode: Code, decodeCode
     }
     if (defInfo.sizeCalc.length === 0 && fields.enum.length === 0) return
     fields.varchar.forEach(({ varName, size, validate }) => {
-        console.log(varName, size, validate)
         if (size === 2) {
             encodeCode.add(`buffer.setUint16(${varName}.length, offset)`)
             encodeCode.add(`offset += 2`)

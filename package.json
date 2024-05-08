@@ -1,6 +1,6 @@
 {
   "name": "static-protocol",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "type": "module",
   "description": "Utility for serializing and deserializing data efficiently, based on a schema definition.",
   "main": "dist/index.js",

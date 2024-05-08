@@ -94,9 +94,9 @@ const addEncodeDecode = <T extends Definition> (defInfo: DefinitionInfo, channel
                 encodeCode.add(`buffer.setUint8(${channel}, ${bufferOffset++})`)
             }
         } else {
-            encodeCode.insert(`const buffer = Buffer.alloc(${bufferSize})`, 0)
+            encodeCode.insert(`const buffer = Buffer.alloc(${bufferSize})`, 1)
             if (channel !== undefined) {
-                encodeCode.insert(`buffer.setUint8(${channel}, ${bufferOffset++})`, 1)
+                encodeCode.insert(`buffer.setUint8(${channel}, ${bufferOffset++})`, 2)
             }
         }  
     }
