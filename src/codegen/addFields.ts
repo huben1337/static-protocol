@@ -1,4 +1,4 @@
-import Code from '../util/Code.js'
+import Code from './Code.js'
 import getObjectStructure from './getObjectStructure.js'
 import { DefinitionInfo, EnumCase } from '../util/structure.js'
 import { INTERNAL_TYPES } from '../util/types.js'
@@ -118,12 +118,12 @@ const addArrayField = ( varName: string, type: INTERNAL_TYPES, size: number, val
     decodeCode.add(`}`)
 }
 
-const addEnumField = (cases: EnumCase[], varName: string, encodeCode: Code, decodeCode: Code, mappedIds: boolean, validatorPrefix: string) => {
+const addEnumField = (cases: EnumCase[], varName: string, encodeCode: Code, decodeCode: Code, usesMappedIds: boolean, validatorPrefix: string) => {
     const allNested = cases.every(({ nested }) => nested)
     encodeCode.add(`buffer.setUint8(${varName}.id, offset++)`)
     const encodeSwitch = encodeCode.switch(`${varName}.id`)
     let switchKey: string
-    if (mappedIds) {
+    if (usesMappedIds) {
         switchKey = 'buffer.getUint8(offset++)'
         decodeCode.add(`const ${varName} = { id: undefined, value: ${allNested ? 'null' : 'undefined' } }`)
     } else {
@@ -138,7 +138,7 @@ const addEnumField = (cases: EnumCase[], varName: string, encodeCode: Code, deco
     cases.forEach(({ id, idString, nested, def, validate }) => {
         const encodeCase = encodeSwitch.case(`${idString ?? id}`)
         const decodeCase = decodeSwitch.case(`${id}`)
-        if (mappedIds) {
+        if (usesMappedIds) {
             decodeCase.add(`${varName}.id = ${idString}`)
         }
         if (nested) {
@@ -298,23 +298,13 @@ function addFieldsStatic (defInfo: DefinitionInfo, encodeCode: Code, decodeCode:
     if (defInfo.sizeCalc.length === 0 && fields.enum.length === 0) return
     
     let tempOffset = bufferOffset
-    fields.varchar.forEach(({ varName, size, validate }) => {
-        if (size === 2) {
-            encodeCode.add(`buffer.setUint16(${varName}.length, ${bufferOffset})`)
-            bufferOffset += 2
-        } else {
-            encodeCode.add(`buffer.setUint8(${varName}.length, ${bufferOffset})`)
-            bufferOffset++
-        } 
+    fields.varchar.forEach(({ varName, size }) => {
+        encodeCode.add(`buffer.setUint${size * 8}(${varName}.length, ${bufferOffset})`)
+        bufferOffset += size
     })
-    fields.varbuf.forEach(({ varName, size, validate }) => {
-        if (size === 2) {
-            encodeCode.add(`buffer.setUint16(${varName}.length, ${bufferOffset})`)
-            bufferOffset += 2
-        } else {
-            encodeCode.add(`buffer.setUint8(${varName}.length, ${bufferOffset})`)
-            bufferOffset++
-        }
+    fields.varbuf.forEach(({ varName, size }) => {
+        encodeCode.add(`buffer.setUint${size * 8}(${varName}.length, ${bufferOffset})`)
+            bufferOffset += size
     })
 
     encodeCode.add(`let offset = ${bufferOffset}`)
@@ -322,13 +312,8 @@ function addFieldsStatic (defInfo: DefinitionInfo, encodeCode: Code, decodeCode:
     fields.varchar.forEach(({ varName, size, validate }) => {
         encodeCode.add(`buffer.setString(${varName}, offset)`)
         encodeCode.add(`offset += ${varName}.length`)
-        if (size === 2) {
-            decodeCode.add(`const ${varName} = buffer.getString(offset, offset += buffer.getUint16(${tempOffset}))`)
-            tempOffset += 2
-        } else {
-            decodeCode.add(`const ${varName} = buffer.getString(offset, offset += buffer.getUint8(${tempOffset}))`)
-            tempOffset++
-        }
+        decodeCode.add(`const ${varName} = buffer.getString(offset, offset += buffer.getUint${size * 8}(${tempOffset}))`)
+        tempOffset += size
         if (validate) {
             decodeCode.add(`if (!${validatorPrefix}${varName}(${varName})) return null`)
         }
@@ -336,13 +321,8 @@ function addFieldsStatic (defInfo: DefinitionInfo, encodeCode: Code, decodeCode:
     fields.varbuf.forEach(({ varName, size, validate }) => {
         encodeCode.add(`buffer.set(${varName}, offset)`)
         encodeCode.add(`offset += ${varName}.length`)
-        if (size === 2) {
-            decodeCode.add(`const ${varName} = buffer.subarray(offset, offset += buffer.getUint16(${tempOffset}))`)
-            tempOffset += 2
-        } else {
-            decodeCode.add(`const ${varName} = buffer.subarray(offset, offset += buffer.getUint8(${tempOffset}))`)
-            tempOffset++
-        }
+        decodeCode.add(`const ${varName} = buffer.subarray(offset, offset += buffer.getUint${size * 8}(${tempOffset}))`)
+        tempOffset += size
         if (validate) {
             decodeCode.add(`if (!${validatorPrefix}${varName}(${varName})) return null`)
         } 
@@ -381,8 +361,8 @@ function addFieldsStatic (defInfo: DefinitionInfo, encodeCode: Code, decodeCode:
         decodeCode.add(`offset = ${varName}_res.end`)
     })
 
-    fields.enum.forEach(({ idName, varName, cases, mappedIds }) => {
-        addEnumField(cases, varName, encodeCode, decodeCode, mappedIds, validatorPrefix)
+    fields.enum.forEach(({ varName, cases, usesMappedIds }) => {
+        addEnumField(cases, varName, encodeCode, decodeCode, usesMappedIds, validatorPrefix)
     })
 }
 
@@ -427,7 +407,7 @@ function addFieldsDynamic (defInfo: DefinitionInfo, encodeCode: Code, decodeCode
     for (let i = 0; i < fields.bool.length; i += 8) {
         const packedBools = fields.bool.slice(i, i + 8 > fields.bool.length ? fields.bool.length : i + 8)
         encodeCode.add(`buffer.setUint8(${packedBools.map(({ varName }, index) => `${varName} << ${index}`).join(' | ')}, offset++)`)
-        packedBools.forEach(({ varName, size, validate }, index) => {
+        packedBools.forEach(({ varName, validate }, index) => {
             decodeCode.add(`const ${varName} = !!(buffer.getUint8(offset) >>> ${index} & 1)`)
             if (validate) {
                 decodeCode.add(`if (!${validatorPrefix}${varName}(${varName})) return null`)
@@ -460,7 +440,7 @@ function addFieldsDynamic (defInfo: DefinitionInfo, encodeCode: Code, decodeCode
     })
     fields.varbuf.forEach(({ varName, size, validate }) => {
         if (size === 2) {
-            encodeCode.add(`buffer.setUint16(${varName}.length, offset)`),
+            encodeCode.add(`buffer.setUint16(${varName}.length, offset)`)
             encodeCode.add(`offset += 2`)
             encodeCode.add(`buffer.set(${varName}, offset)`)
             encodeCode.add(`offset += ${varName}.length`)
@@ -548,8 +528,8 @@ function addFieldsDynamic (defInfo: DefinitionInfo, encodeCode: Code, decodeCode
 
     if (fields.enum.length > 0 && inEnum) throw new Error('Nested Enums are not supported. (yet?)')
 
-    fields.enum.forEach(({ idName, varName, cases, mappedIds }) => {
-        addEnumField(cases, varName, encodeCode, decodeCode, mappedIds, validatorPrefix)
+    fields.enum.forEach(({ varName, cases, usesMappedIds }) => {
+        addEnumField(cases, varName, encodeCode, decodeCode, usesMappedIds, validatorPrefix)
     })
     
 }

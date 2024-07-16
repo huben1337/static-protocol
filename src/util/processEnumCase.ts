@@ -1,6 +1,6 @@
-import { ArrayDefintionInternal, DataDefintion, EnumFieldTypes, ExtendedFieldType, InputDataTypes } from "../types/definition.js"
+import { ArrayDefintionInternal, DataDefintion, EnumFieldTypes, ExtendedFieldType } from "../types/definition.js"
 import processArrayDefinition from "./processArrayDefinition.js"
-import processDefinition from "./processDefinition.js"
+import processDataDefinition from "./processDataDefinition.js"
 import processType from "./processType.js"
 import { DefinitionInfo, EnumCase } from "./structure.js"
 
@@ -41,7 +41,7 @@ export default (typeDef: EnumFieldTypes, id: number, defInfo: DefinitionInfo, id
         }
     } else {
         const subDefInfo = defInfo.sub()
-        processDefinition(typeDef as DataDefintion, subDefInfo.args, subDefInfo)
+        processDataDefinition(typeDef as DataDefintion, subDefInfo.args, subDefInfo)
         return {
             id,
             idString,

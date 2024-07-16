@@ -135,6 +135,7 @@ class Buffer {
     getVarint (offset = 0) {
         let value = 0
         let shift = 0
+        // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition, no-constant-condition
         while (true) {
             const byte = this.bufferView[offset++]
             value = (value | (byte & 0x7f) << shift) >>> 0
@@ -217,6 +218,7 @@ class ReadonlyBuffer<T extends ReadonlyUint8Array | Uint8Array> {
     getVarint (offset = 0) {
         let value = 0
         let shift = 0
+        // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition, no-constant-condition
         while (true) {
             const byte = this.bufferView[offset++]
             value = (value | (byte & 0x7f) << shift) >>> 0

@@ -1,5 +1,5 @@
 import { Definition } from "../types/definition.js"
-import Code from "../util/Code.js"
+import Code from "./Code.js"
 import { DefinitionInfo } from "../util/structure.js"
 import { INTERNAL_TYPES } from "../util/types.js"
 import { addFieldsStatic } from "./addFields.js"
@@ -9,7 +9,7 @@ const addEnumSizeCalc = (defInfo: DefinitionInfo, encodeCode: Code) => {
     defInfo.fields.enum.forEach(({ varName, cases }) => {
         const encodeSwitch = encodeCode.switch(`${varName}.id`)
         cases.forEach(({ id, idString, nested, def }) => {
-            const encodeCase = encodeSwitch.case(`${idString ?? id}`)
+            const encodeCase = encodeSwitch.case(idString ?? `${id}`)
             if (nested) {
                 if (def.args.varArgs.length > 0) {
                     const objectStructure = getObjectStructure(def.args.varArgs)

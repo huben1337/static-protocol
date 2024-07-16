@@ -1,10 +1,9 @@
 import { Buffer, BufferLike, FullyReadonlyBuffer, ReadonlyBuffer } from './util/Buffer.js'
 import { findLength } from './util/varuint.js'
-import { ArrayFieldTypes,  DataDefintion, Definition, EnumDefintion, HasExtended, ProtoObject } from './types/definition.js'
-import { DefinitionInfo } from './util/structure.js'
+import { ArrayFieldTypes,  DataDefintion, Definition, DefinedTypeInput, DefinedTypeOutput, EnumDefintion, HasExtended } from './types/definition.js'
 import processDefinition from './util/processDefinition.js'
 import addEncodeDecode from './codegen/addEncodeDecode.js'
-import Code from './util/Code.js'
+import Code from './codegen/Code.js'
 
 /**
  * Specifies an enum.
@@ -41,16 +40,22 @@ type StaticEndpointType<T extends Definition> = {
      * 
      * @param data - The data to encode
      */
-    readonly encode: (data: T['data'] extends DataDefintion ? ProtoObject<T, true> : void) => T['allocateNew'] extends true ? Buffer : FullyReadonlyBuffer
+    readonly encode: T['data'] extends DataDefintion ? (
+        (data: DefinedTypeInput<T['data']>) => T['allocateNew'] extends true ? Buffer : FullyReadonlyBuffer
+    ) : (
+        () => T['allocateNew'] extends true ? Buffer : FullyReadonlyBuffer
+    )
     /**
      * Decodes data from a buffer
      * 
      * @param buffer - The buffer to decode
      */
     readonly decode: (buffer: BufferLike) => T['data'] extends DataDefintion ? (
-        T['validate'] extends false ? ProtoObject<T, false> : (
-            HasExtended<T['data']> extends never ? ProtoObject<T, false> : ProtoObject<T, false> | null
+        T['validate'] extends false ? DefinedTypeOutput<T['data']> : (
+            HasExtended<T['data']> extends never ? DefinedTypeOutput<T['data']> : DefinedTypeOutput<T['data']> | null
         )
+    // we disable the rule cuz it is bugged
+    // eslint-disable-next-line @typescript-eslint/no-invalid-void-type
     ) : void
 }
 
@@ -60,10 +65,7 @@ type StaticEndpointType<T extends Definition> = {
  * @param definition - The definition for the endpoint
  */
 const StaticEndpoint = <T extends Definition> (definition: T) => {
-    const defInfo = new DefinitionInfo(definition.validate !== false)
-    if (definition.data) {
-        processDefinition(definition.data, defInfo.args, defInfo)
-    }
+    const defInfo = processDefinition(definition)
 
     const encodeCode = new Code('const Buffer = this.Buffer')
     if (defInfo.varuintSizeCalc.length > 0) {
@@ -77,12 +79,12 @@ const StaticEndpoint = <T extends Definition> (definition: T) => {
 
     addEncodeDecode(defInfo, definition.channel, definition.allocateNew, encodeCode, decodeCode, 'return', 'vd')
 
-    return Object.seal(Object.defineProperties<StaticEndpointType<T>>(Object.create(null), {
+    return Object.seal(Object.defineProperties(Object.create(null), {
         channel: {
             value: definition.channel,
         },
         encode: {
-            value: encodeCode.compile(defInfo.varuintSizeCalc.length > 0 ? {
+            value: encodeCode.compile<StaticEndpointType<T>['encode']>(defInfo.varuintSizeCalc.length > 0 ? {
                 Buffer,
                 getViLen: findLength,
             } : {
@@ -90,14 +92,14 @@ const StaticEndpoint = <T extends Definition> (definition: T) => {
             })
         },
         decode: {
-            value: decodeCode.compile(defInfo.validate ? {
+            value: decodeCode.compile<StaticEndpointType<T>['decode']>(defInfo.validate ? {
                 ReadonlyBuffer,
                 vd: defInfo.validators
             } : {
                 ReadonlyBuffer
             })
         }
-    }))
+    })) as StaticEndpointType<T>
 }
 
 // type EnumHasExtended<T extends EnumDefintion> = T[keyof T] extends FieldTypes ? HasExtended<T[keyof T]> : never

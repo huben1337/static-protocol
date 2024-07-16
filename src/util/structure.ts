@@ -39,7 +39,7 @@ class Fields {
     none = new FieldList()
     array: {varName: string, def: ReturnType<typeof processType>, lenSize: number, validate: boolean}[] = []
     nestedArray: {varName: string, def: DefinitionInfo, objectStructure: string, lenSize: number}[] = []
-    enum: {idName: string, varName: string, cases: EnumCase[], mappedIds: boolean}[] = []
+    enum: {idName: string, varName: string, cases: EnumCase[], usesMappedIds: boolean}[] = []
 }
 
 class DefinitionInfo {
@@ -61,12 +61,14 @@ class DefinitionInfo {
     }
     getBufferSize () {
         const fixedSize = this.fixedSize + ((this.fields.bool.length + 7) >>> 3)
-        if (this.sizeCalc.length > 0) {
+        this.sizeCalc.push(`${fixedSize}`)
+        return this.sizeCalc.join(' + ')
+        /* if (this.sizeCalc.length > 0) {
             const sizeCalcString = this.sizeCalc.join(' + ')
-            return fixedSize > 0 ? `${fixedSize}${` + ${sizeCalcString} `}` : sizeCalcString
+            return fixedSize > 0 ? `${fixedSize} + ${sizeCalcString}` : sizeCalcString
         } else {
             return `${fixedSize}`
-        }
+        } */
     }
 
     sub () {

@@ -1,6 +1,6 @@
 import { EnumDefintionInternal } from "../types/definition.js"
 import processEnumCase from "./processEnumCase.js"
-import { Args, DefinitionInfo, EnumCase } from "./structure.js"
+import { DefinitionInfo, EnumCase } from "./structure.js"
 
 const processEnumDefinition = (definition: EnumDefintionInternal, varName: string, defInfo: DefinitionInfo) => {
     const subFields = Object.entries(definition.def)
@@ -29,7 +29,7 @@ const processEnumDefinition = (definition: EnumDefintionInternal, varName: strin
         idName,
         varName,
         cases,
-        mappedIds: mappedId > 0
+        usesMappedIds: mappedId > 0
     })
     defInfo.fixedSize++
 }

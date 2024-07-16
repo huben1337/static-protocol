@@ -1,5 +1,6 @@
 import { StaticEndpoint, StaticEndpointType } from "./StaticEndpoint.js"
 import { Definition } from "./types/definition.js"
+import { Entries } from "./types/helpers.js"
 
 type ProtocolDefintion = {
     [endpoint: string]: Definition
@@ -11,10 +12,6 @@ type StaticProtocolType <T extends ProtocolDefintion, R> = R extends true ? {
     [name in keyof T]: StaticEndpointType<T[name] & { channel: number }>
 }
 
-type Entries<T> = {
-    [K in keyof T]: [K, T[K]]
-}[keyof T][]
-
 /**
  * Creates a static protocol based on the provided definition.
  *
@@ -24,14 +21,14 @@ type Entries<T> = {
  */
 const StaticProtocol = <T extends ProtocolDefintion, R extends boolean = false> (definition: T, raw?: R): StaticProtocolType<T, R> => {
     const entries = Object.entries(definition) as Entries<T>
-    type PropertyDescriptorEntries = [name: keyof T, descriptor: { value: StaticEndpointType<T[keyof T]>, enumerable: true }]
+    type PropertyDescriptorEntry = [name: keyof T, descriptor: { value: StaticEndpointType<T[keyof T]>, enumerable: true }]
     let mapped
     if (raw) {
-        mapped = entries.map<PropertyDescriptorEntries>(([name, def]) => [name, { value: StaticEndpoint(def), enumerable: true }]) 
+        mapped = entries.map<PropertyDescriptorEntry>(([name, def]) => [name, { value: StaticEndpoint(def), enumerable: true }]) 
     } else {
         const usedChannels = new Set<number>()
         let channelId = 0  
-        mapped = entries.map<PropertyDescriptorEntries>(([name, def]) => {
+        mapped = entries.map<PropertyDescriptorEntry>(([name, def]) => {
             if (def.channel) {
                 if (usedChannels.has(def.channel)) throw new Error('Duplicate channel')
                 usedChannels.add(def.channel)
@@ -51,7 +48,7 @@ const StaticProtocol = <T extends ProtocolDefintion, R extends boolean = false> 
             enumerable: true
         }
     }
-    return Object.seal(Object.defineProperties<StaticProtocolType<T, R>>(Object.create(null), propertyDescriptor))
+    return Object.seal(Object.defineProperties(Object.create(null), propertyDescriptor)) as StaticProtocolType<T, R>
 }
 
 export { StaticProtocol, ProtocolDefintion, StaticProtocolType }

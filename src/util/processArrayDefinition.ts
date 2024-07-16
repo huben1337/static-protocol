@@ -1,6 +1,6 @@
 import getObjectStructure from "../codegen/getObjectStructure.js";
 import { ArrayDefintionInternal, DataDefintion, EnumDefintionInternal, ExtendedFieldType } from "../types/definition.js";
-import processDefinition from "./processDefinition.js";
+import processDataDefinition from "./processDataDefinition.js";
 import processEnumDefinition from "./processEnumDefinition.js";
 import processType from "./processType.js";
 import { Args, DefinitionInfo } from "./structure.js";
@@ -68,7 +68,7 @@ const processArrayDefinition = (definition: ArrayDefintionInternal, varName: str
     } else {
         const child = new Args()
         const arrDefInfo = defInfo.sub()
-        processDefinition(def as DataDefintion, child, arrDefInfo)
+        processDataDefinition(def as DataDefintion, child, arrDefInfo)
         let sizeCalc = `(${varName}.length * ${arrDefInfo.fixedSize})`
         const objectStructure = getObjectStructure(child.args)
         if (arrDefInfo.sizeCalc.length > 0) {

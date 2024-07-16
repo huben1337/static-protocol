@@ -1,14 +1,16 @@
-import { Enum } from "../src/StaticEndpoint.js"
 import { ProtocolDefintion } from "../src/StaticProtocol.js"
 import addEncodeDecode from "../src/codegen/addEncodeDecode.js"
 import { DataDefintion, Definition, EnumDefintion, ExtendedFieldType, InputDataTypes } from "../src/types/definition.js"
-import Code from "../src/util/Code.js"
+import Code from "../src/codegen/Code.js"
 import processDefinition from "../src/util/processDefinition.js"
+import processDataDefinition from "../src/util/processDataDefinition.js"
 import { DefinitionInfo } from "../src/util/structure.js"
 import { INTERNAL_TYPES } from "../src/util/types.js"
 import fs from 'fs'
 
 import * as esbuild from 'esbuild'
+
+
 
 const typeMap = {
     'bool': ['boolean', 'boolean'],
@@ -104,11 +106,10 @@ const buildEnpointObject = (endpointCode: Code, encodeCode: Code, decodeCode: Co
     endpointCode.add(`}))${end}`)
 }
 
-const buildEndpoint = <T extends Definition> (definition: T, name: string, transformOptions?: esbuild.TransformOptions, context?: Record<keyof any, any>) => {
-    const defInfo = new DefinitionInfo(definition.validate !== false)
-    if (definition.data) {
-        processDefinition(definition.data, defInfo.args, defInfo)
-    }
+type Context = Record<keyof any, any>
+
+const buildEndpoint = <T extends Definition> (definition: T, name: string, transformOptions?: esbuild.TransformOptions, contextPath?: string) => {
+    const defInfo = processDefinition(definition)
 
     const endpointCode = new Code(`import { Buffer, ReadonlyBuffer } from 'static-protocol'`)
 
@@ -164,7 +165,7 @@ const buildProtocol = <T extends ProtocolDefintion, R extends boolean = false> (
 
         const defInfo = new DefinitionInfo(endpoint.validate !== false)
         if (endpoint.data) {
-            processDefinition(endpoint.data, defInfo.args, defInfo)
+            processDataDefinition(endpoint.data, defInfo.args, defInfo)
         }
 
         for (const [fieldName, { test, type }] of Object.entries(defInfo.validators)) {
@@ -217,25 +218,4 @@ const buildProtocol = <T extends ProtocolDefintion, R extends boolean = false> (
 
 }
 
-buildEndpoint({
-    data: {
-        age: Enum({ 
-            0: 'none',
-            1: {
-                type: {
-                    type: 'uint8',
-                    test: (value) => value < 255
-                },
-                aaa: {
-                    type: 'uint8',
-                    test: (value) => value < 255
-                }
-            }
-        }),
-        test: 'varchar',
-        num: {
-            type: 'uint16',
-            test: (value) => value < 255
-        },
-    },
-}, 'test')
+export { buildEndpoint, buildProtocol }

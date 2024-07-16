@@ -1,7 +1,8 @@
 
-import Code from './util/Code.js'
-import {  StaticProtocolType } from './StaticProtocol.js'
+import Code from './codegen/Code.js'
+import { StaticProtocolType } from './StaticProtocol.js'
 import { BufferLike } from './util/Buffer.js'
+
 
 /**
  * Creates a function to handle the endpoints of the static protocol.
@@ -10,7 +11,7 @@ import { BufferLike } from './util/Buffer.js'
  * @param endpointHandlers - Handler functions for the different endpoints.
  * @return The handler function.
  */
-const StaticHandler = <T extends StaticProtocolType<any, boolean>> (proto: T, endpointHandlers: { [endpoint in keyof T]?: (data: ReturnType<T[endpoint]['decode']>) => void }) => {
+const StaticHandler = <T extends StaticProtocolType<D, boolean>, D extends (T extends StaticProtocolType<infer D, boolean> ? D : never)> (proto: T, endpointHandlers: { [endpoint in keyof T]?: (data: ReturnType<T[endpoint]['decode']>) => void }) => {
     const handleCode = new Code()
     const entries = Object.entries(endpointHandlers)
     for (let i = 0; i < entries.length; i++) {
@@ -35,10 +36,10 @@ const StaticHandler = <T extends StaticProtocolType<any, boolean>> (proto: T, en
     handleCode.add('}')
     handleCode.indent--
     handleCode.add('}')
-    return handleCode.compile({
+    return handleCode.compile<(buf: BufferLike) => void>({
         h: endpointHandlers,
         p: proto
-    }) as (buf: BufferLike) => void
+    })
 }
 
 export { StaticHandler }

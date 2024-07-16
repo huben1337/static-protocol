@@ -1,10 +1,6 @@
 const CODE_INDENT_SPACES = 4
 const CODE_INDENT = ' '.repeat(CODE_INDENT_SPACES)
 
-// function compile (code: string) {
-//     return eval(`(() => { ${code} })`)()
-// }
-
 type CodeLike = Switch | Code | string
 
 class Switch {
@@ -68,16 +64,13 @@ class Code {
             } else {
                 return line.value.toString(line.indent + blockIndent)
             }
-        }).join('\n') + `\n${CODE_INDENT.repeat(blockIndent)}${this.end}`
+        }).join('\n') + `\n${CODE_INDENT.repeat(blockIndent)}${this.end.toString()}`
         return v
     }
 
-    compile (context = {}) {
+    compile <T> (context = {}) {
         // console.log(this.toString())
-        // return compile.call(context, this.toString())
-        return Function.call(null, this.toString()).call(context)
+        return Function.call(null, this.toString()).call(context) as T
     }
 }
-
-
 export default Code
