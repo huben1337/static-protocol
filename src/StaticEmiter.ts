@@ -1,5 +1,5 @@
 import { StaticProtocolType } from './StaticProtocol.js'
-import { Entries } from './types/helpers.js'
+import { Entries, InferedProtocolDefintion } from './types/helpers.js'
 import { FullyReadonlyBuffer } from './util/Buffer.js'
 
 /**
@@ -10,7 +10,7 @@ import { FullyReadonlyBuffer } from './util/Buffer.js'
  * @param mask - The list of endpoints to add to the emitter. If not provided, all endpoints will be added.
  * @return The static emitter object.
  */
-const StaticEmiter = <T extends StaticProtocolType<D, boolean>, D extends (T extends StaticProtocolType<infer D, boolean> ? D : never), M extends (keyof T)[] | undefined> (proto: T, emiterCallback: (data: FullyReadonlyBuffer ) => void, mask?: M) => {
+const StaticEmiter = <T extends StaticProtocolType<InferedProtocolDefintion<T>, boolean>, M extends (keyof T)[] | undefined> (proto: T, emiterCallback: (data: FullyReadonlyBuffer ) => void, mask?: M) => {
     const endpoints = mask === undefined ? (Object.entries(proto) as Entries<T>) : (Object.entries(proto) as Entries<T>).filter(([name]) => mask.includes(name))
     const mapped = endpoints.map(([name, endpoint]) => {
         if (endpoint.encode.length === 0) {
