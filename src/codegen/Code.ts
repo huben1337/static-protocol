@@ -3,25 +3,6 @@ const CODE_INDENT = ' '.repeat(CODE_INDENT_SPACES)
 
 type CodeLike = Switch | Code | string
 
-class Switch {
-    constructor (key: string) {
-        this.code = new Code(`switch (${key}) {`, '}')
-        this.code.indent++
-    }
-    code: Code
-    case (value: string, scoped = true) {
-        const caseCode = scoped ? new Code(`case ${value}: {`, '}') : new Code(`case ${value}:`)
-        caseCode.indent++
-        this.code.add(caseCode)
-        return caseCode
-    }
-    toString (blockIndent = 0) {
-        return this.code.toString(blockIndent)
-    }
-}
-
-
-
 class Code {
     constructor (intitialValue: CodeLike = '', end: CodeLike = '') {
         this.lines.push({value: intitialValue, indent: this.indent})
@@ -57,20 +38,65 @@ class Code {
         return switchCode
     }
 
-    toString (blockIndent = 0): string {
+    if (condition: string) {
+        const ifCode = new If(condition)
+        this.add(ifCode)
+        return ifCode
+    }
+
+    toString (blockIndent = 0, newLine = '\n'): string {
         const  v = this.lines.map(line => {
             if (typeof line.value === 'string') {
                 return `${CODE_INDENT.repeat(line.indent + blockIndent)}${line.value}`
             } else {
                 return line.value.toString(line.indent + blockIndent)
             }
-        }).join('\n') + `\n${CODE_INDENT.repeat(blockIndent)}${this.end.toString()}`
+        }).join(newLine) + `${newLine}${CODE_INDENT.repeat(blockIndent)}${this.end.toString()}`
         return v
     }
+}
 
-    compile <T> (context = {}) {
-        // console.log(this.toString())
-        return Function.call(null, this.toString()).call(context) as T
+class Switch {
+    constructor (key: string) {
+        this.code = new Code(`switch (${key}) {`, '}')
+        this.code.indent++
+    }
+    code: Code
+    case (value: string, scoped = true) {
+        const caseCode = scoped ? new Code(`case ${value}: {`, '}') : new Code(`case ${value}:`)
+        caseCode.indent++
+        this.code.add(caseCode)
+        return caseCode
+    }
+    toString (blockIndent = 0, ) {
+        return this.code.toString(blockIndent)
     }
 }
+
+class If extends Code {
+    constructor (condition: string) {
+        super(`if (${condition}) {`, '}')
+        this.indent++
+    }
+    elseIf (condition: string) {
+        this.indent--
+        this.add(`} else if (${condition}) {`)
+        this.indent++
+        return this
+    }
+    else () {
+        this.add('} else {')
+        this.indent++
+        return this
+    }
+}
+
+
+export const compile = <T>(code: Code, context = {}) => {
+    // console.log(code.toString())
+    return Function.call(null, code.toString()).call(context) as T
+}
+
+
+
 export default Code

@@ -1,6 +1,7 @@
 import { StaticProtocolType } from './StaticProtocol.js'
-import { Entries, InferedProtocolDefintion } from './types/helpers.js'
+import { Entries, InferedProtocolDefintion, NumberKeyToString } from './types/helpers.js'
 import { FullyReadonlyBuffer } from './util/Buffer.js'
+
 
 /**
  * Creates a static emitter for the given protocol and callback.
@@ -10,8 +11,11 @@ import { FullyReadonlyBuffer } from './util/Buffer.js'
  * @param mask - The list of endpoints to add to the emitter. If not provided, all endpoints will be added.
  * @return The static emitter object.
  */
-const StaticEmiter = <T extends StaticProtocolType<InferedProtocolDefintion<T>, boolean>, M extends (keyof T)[] | undefined> (proto: T, emiterCallback: (data: FullyReadonlyBuffer ) => void, mask?: M) => {
-    const endpoints = mask === undefined ? (Object.entries(proto) as Entries<T>) : (Object.entries(proto) as Entries<T>).filter(([name]) => mask.includes(name))
+const StaticEmiter = <T extends StaticProtocolType<InferedProtocolDefintion<T>, boolean>, M extends NumberKeyToString<keyof T>[] | undefined> (proto: T, emiterCallback: (data: FullyReadonlyBuffer) => void, mask?: M) => {
+    let endpoints = Object.entries(proto) as Entries<T>
+    if (mask) {
+        endpoints = endpoints.filter(([name]) => mask.includes(name))
+    }
     const mapped = endpoints.map(([name, endpoint]) => {
         if (endpoint.encode.length === 0) {
             return [name, () => {
@@ -24,10 +28,10 @@ const StaticEmiter = <T extends StaticProtocolType<InferedProtocolDefintion<T>, 
         }
     })
     return Object.fromEntries(mapped) as (
-        M extends (keyof T)[] ? {
-            [key in keyof Pick<T, M[number]>]: ((data: ReturnType<T[key]['decode']>) => void)
+        M extends NumberKeyToString<keyof T>[] ? {
+            [K in M[number]]: (data: ReturnType<T[K]['decode']>) => void
         } : {
-            [key in keyof T]: ((data: ReturnType<T[key]['decode']>) => void)
+            [K in keyof T]: (data: ReturnType<T[K]['decode']>) => void
         }
     )
 }

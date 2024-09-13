@@ -85,7 +85,7 @@ class Buffer {
     }
 
     getUint32 (offset = 0) {
-        return (this.bufferView[offset] | (this.bufferView[offset + 1] << 8) | (this.bufferView[offset + 2] << 16) | (this.bufferView[offset + 3] << 24))
+        return (this.bufferView[offset] | (this.bufferView[offset + 1] << 8) | (this.bufferView[offset + 2] << 16) | (this.bufferView[offset + 3] << 24)) >>> 0
     }
 
     setInt32 (value: number, offset = 0) {
@@ -110,8 +110,8 @@ class Buffer {
     }
 
     getUint64 (offset = 0) {
-        const low = (this.bufferView[offset] | (this.bufferView[offset + 1] << 8) | (this.bufferView[offset + 2] << 16) | (this.bufferView[offset + 3] << 24))
-        const high = (this.bufferView[offset + 4] | (this.bufferView[offset + 5] << 8) | (this.bufferView[offset + 6] << 16) | (this.bufferView[offset + 7] << 24))
+        const low = (this.bufferView[offset] | (this.bufferView[offset + 1] << 8) | (this.bufferView[offset + 2] << 16) | (this.bufferView[offset + 3] << 24)) >>> 0
+        const high = (this.bufferView[offset + 4] | (this.bufferView[offset + 5] << 8) | (this.bufferView[offset + 6] << 16) | (this.bufferView[offset + 7] << 24)) >>> 0
         return BigInt(low) | (BigInt(high) << 32n)
     }
 
@@ -153,7 +153,7 @@ class Buffer {
         return new this(bufferView)
     }
 
-    readonly buffer: Uint8Array['buffer']
+    readonly buffer: ArrayBufferLike
 
     readonly bufferView: Uint8Array
 
@@ -198,7 +198,7 @@ class ReadonlyBuffer<T extends ReadonlyUint8Array | Uint8Array> {
     }
 
     getUint32 (offset = 0) {
-        return (this.bufferView[offset] | (this.bufferView[offset + 1] << 8) | (this.bufferView[offset + 2] << 16) | (this.bufferView[offset + 3] << 24))
+        return (this.bufferView[offset] | (this.bufferView[offset + 1] << 8) | (this.bufferView[offset + 2] << 16) | (this.bufferView[offset + 3] << 24)) >>> 0
     }
 
     getInt32 (offset = 0) {
@@ -206,8 +206,8 @@ class ReadonlyBuffer<T extends ReadonlyUint8Array | Uint8Array> {
     }
 
     getUint64 (offset = 0) {
-        const low = (this.bufferView[offset] | (this.bufferView[offset + 1] << 8) | (this.bufferView[offset + 2] << 16) | (this.bufferView[offset + 3] << 24))
-        const high = (this.bufferView[offset + 4] | (this.bufferView[offset + 5] << 8) | (this.bufferView[offset + 6] << 16) | (this.bufferView[offset + 7] << 24))
+        const low = (this.bufferView[offset] | (this.bufferView[offset + 1] << 8) | (this.bufferView[offset + 2] << 16) | (this.bufferView[offset + 3] << 24)) >>> 0
+        const high = (this.bufferView[offset + 4] | (this.bufferView[offset + 5] << 8) | (this.bufferView[offset + 6] << 16) | (this.bufferView[offset + 7] << 24)) >>> 0
         return BigInt(low) | (BigInt(high) << 32n)
     }
 
@@ -231,7 +231,7 @@ class ReadonlyBuffer<T extends ReadonlyUint8Array | Uint8Array> {
         return new this(bufferView)
     }
 
-    readonly buffer: T['buffer']
+    readonly buffer: ArrayBufferLike
 
     readonly bufferView: T
 

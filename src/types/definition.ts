@@ -1,6 +1,5 @@
+import { ValueType } from "./helpers.js"
 import ReadonlyUint8Array from "./ReadonlyUint8Array.js"
-
-type ValueType<T> = T[keyof T]
 
 type IntTypes = {
     uint8: number
@@ -79,13 +78,22 @@ type ArrayDefintionInternal = {
 type SubInput<T> = T extends FieldTypes ? DefinedTypeInput<T> : never
 type SubOutput<T> = T extends FieldTypes ? DefinedTypeOutput<T> : never
 
+type HasData<T extends FieldTypes> = keyof T extends never ? false : ValueType<{
+    [K in keyof T as (
+        T[K] extends FieldTypes ? (
+            HasData<T[K]> extends false ? never : K
+        ) : never
+    )]: true
+}>
+
+
 type DefinedTypeInput<T extends FieldTypes> = T extends keyof InputDataTypes ? InputDataTypes[T] : (
     T extends ExtendedFieldType ? InputDataTypes[T['type']] : (
         T extends ArrayDefintionInternal ? DefinedTypeInput<T['def']>[] : (
             T extends EnumDefintionInternal ? EnumTypeInput<T['def']> : (
-                {
-                    [key in keyof T]: SubInput<T[key]>
-                }
+                T extends DataDefintion ? {
+                    [K in keyof T as HasData<T[K]> extends false ? never : K]: DefinedTypeInput<T[K]>
+                } : never
             )
         )
     )
@@ -95,9 +103,9 @@ type DefinedTypeOutput<T extends FieldTypes> = T extends keyof OutputDataTypes ?
     T extends ExtendedFieldType ? OutputDataTypes[T['type']] : (
         T extends ArrayDefintionInternal ? DefinedTypeOutput<T['def']>[] : (
             T extends EnumDefintionInternal ? EnumTypeOutput<T['def']> : (
-                {
-                    [key in keyof T]: SubOutput<T[key]>
-                }
+                T extends DataDefintion ? {
+                    [K in keyof T as HasData<T[K]> extends false ? never : K]: DefinedTypeOutput<T[K]>
+                } : never
             )
         )
     )
@@ -133,4 +141,4 @@ type EnumHasExtended<T extends EnumDefintion> = ValueType<{
     [key in keyof T]: T[key] extends FieldTypes ? HasExtended<T[key]> : never
 }>
 
-export type { InputDataTypes, OutputDataTypes, Definition, FieldTypes, ExtendedFieldType, DataDefintion, EnumDefintion, DefinedTypeInput, DefinedTypeOutput, EnumDefintionInternal, EnumFieldTypes, EnumTypeInput, EnumTypeOutput, HasExtended, EnumHasExtended, ArrayDefintionInternal, ArrayFieldTypes, BaseFieldTypes }
+export type { IntTypes, InputDataTypes, OutputDataTypes, Definition, FieldTypes, ExtendedFieldType, DataDefintion, HasData, EnumDefintion, DefinedTypeInput, DefinedTypeOutput, EnumDefintionInternal, EnumFieldTypes, EnumTypeInput, EnumTypeOutput, HasExtended, EnumHasExtended, ArrayDefintionInternal, ArrayFieldTypes, BaseFieldTypes }

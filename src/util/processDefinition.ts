@@ -3,7 +3,7 @@ import processDataDefinition from "./processDataDefinition.js"
 import { DefinitionInfo } from "./structure.js"
 
 const processDefinition = (definition: Definition) => {
-    const defInfo = new DefinitionInfo(definition.validate !== false)
+    const defInfo = new DefinitionInfo(definition.validate !== false, true)
     if (definition.data) {
         processDataDefinition(definition.data, defInfo.args, defInfo)
     }

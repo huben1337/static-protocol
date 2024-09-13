@@ -3,14 +3,14 @@ import processEnumCase from "./processEnumCase.js"
 import { DefinitionInfo, EnumCase } from "./structure.js"
 
 const processEnumDefinition = (definition: EnumDefintionInternal, varName: string, defInfo: DefinitionInfo) => {
-    const subFields = Object.entries(definition.def)
+    const enumEntries = Object.entries(definition.def)
     // if (subFields.some((value) => value.match(/^[^0-9]+$/))) throw new Error('Enum can only contain numbers as ids')
     const usedIds = new Set<number>()
-    const cases = new Array<EnumCase>(subFields.length)
+    const cases = new Array<EnumCase>(enumEntries.length)
     const idName = defInfo.getVarName()
     let mappedId = 0
-    for (let i = 0; i < subFields.length; i++) {
-        const [idString, sub] = subFields[i]
+    for (let i = 0; i < enumEntries.length; i++) {
+        const [idString, sub] = enumEntries[i]
         if (/^[0-9]{1,3}$/.test(idString)) {
             const id = parseInt(idString)
             if (id > 255) throw new Error('Enum indecies must be between 0 and 255')
@@ -22,7 +22,7 @@ const processEnumDefinition = (definition: EnumDefintionInternal, varName: strin
                 mappedId++
                 if (mappedId > 255) throw new Error('Ran out of enum indecies for mapping')
             }
-            cases[i] = processEnumCase(sub, mappedId, defInfo, `'${idString}'`, varName)
+            cases[i] = processEnumCase(sub, mappedId++, defInfo, `'${idString}'`, varName)
         }
     }
     defInfo.fields.enum.push({
@@ -31,7 +31,7 @@ const processEnumDefinition = (definition: EnumDefintionInternal, varName: strin
         cases,
         usesMappedIds: mappedId > 0
     })
-    defInfo.fixedSize++
+    defInfo.baseSize++
 }
 
 export default processEnumDefinition

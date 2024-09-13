@@ -1,19 +1,21 @@
 {
   "name": "static-protocol",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "type": "module",
   "description": "Utility for serializing and deserializing data efficiently, based on a schema definition.",
   "main": "dist/index.js",
   "files": [
-    "dist",
-    "build/dist"
+    "dist/src",
+    "dist/index.js",
+    "dist/index.d.ts"
   ],
   "exports": {
     ".": "./dist/index.js",
-    "./build": "./dist/build/build/index.js"
+    "./build": "./dist/build/index.js"
   },
   "scripts": {
     "build": "tsc -b",
+    "test": "tsc -p tsconfig.test.json && node dist/test/test.js",
     "demo": "tsc -p tsconfig.neutral.json && node dist/examples/demo.js"
   },
   "author": "huben1337",

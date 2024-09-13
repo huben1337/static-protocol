@@ -1,9 +1,11 @@
 import { Buffer, BufferLike, FullyReadonlyBuffer, ReadonlyBuffer } from './util/Buffer.js'
 import { findLength } from './util/varuint.js'
-import { ArrayFieldTypes,  DataDefintion, Definition, DefinedTypeInput, DefinedTypeOutput, EnumDefintion, HasExtended } from './types/definition.js'
+import { ArrayFieldTypes,  DataDefintion, Definition, DefinedTypeInput, DefinedTypeOutput, EnumDefintion, HasExtended, HasData } from './types/definition.js'
 import processDefinition from './util/processDefinition.js'
 import addEncodeDecode from './codegen/addEncodeDecode.js'
-import Code from './codegen/Code.js'
+import Code, { compile } from './codegen/Code.js'
+import { DeepReadonly } from './util/types.js'
+
 
 /**
  * Specifies an enum.
@@ -30,6 +32,7 @@ const List = <T extends ArrayFieldTypes>(def: T, maxSize = 256) => {
     }
 }
 
+
 type StaticEndpointType<T extends Definition> = {
     /**
      * The channel id of the endpoint
@@ -41,7 +44,11 @@ type StaticEndpointType<T extends Definition> = {
      * @param data - The data to encode
      */
     readonly encode: T['data'] extends DataDefintion ? (
-        (data: DefinedTypeInput<T['data']>) => T['allocateNew'] extends true ? Buffer : FullyReadonlyBuffer
+        HasData<T['data']> extends false ? (
+            () => T['allocateNew'] extends true ? Buffer : FullyReadonlyBuffer
+        ) : (
+            (data: DefinedTypeInput<T['data']>) => T['allocateNew'] extends true ? Buffer : FullyReadonlyBuffer
+        )
     ) : (
         () => T['allocateNew'] extends true ? Buffer : FullyReadonlyBuffer
     )
@@ -51,12 +58,17 @@ type StaticEndpointType<T extends Definition> = {
      * @param buffer - The buffer to decode
      */
     readonly decode: (buffer: BufferLike) => T['data'] extends DataDefintion ? (
-        T['validate'] extends false ? DefinedTypeOutput<T['data']> : (
-            HasExtended<T['data']> extends never ? DefinedTypeOutput<T['data']> : DefinedTypeOutput<T['data']> | null
+        // eslint-disable-next-line @typescript-eslint/no-invalid-void-type
+        HasData<T['data']> extends false ? void : (
+            T['validate'] extends false ? DefinedTypeOutput<T['data']> : (
+                HasExtended<T['data']> extends never ? DefinedTypeOutput<T['data']> : DefinedTypeOutput<T['data']> | null
+            )
         )
+
     // we disable the rule cuz it is bugged
     // eslint-disable-next-line @typescript-eslint/no-invalid-void-type
     ) : void
+    readonly definition: DeepReadonly<T>
 }
 
 /**
@@ -79,12 +91,12 @@ const StaticEndpoint = <T extends Definition> (definition: T) => {
 
     addEncodeDecode(defInfo, definition.channel, definition.allocateNew, encodeCode, decodeCode, 'return', 'vd')
 
-    return Object.seal(Object.defineProperties(Object.create(null), {
+    return Object.seal(Object.create(null, {
         channel: {
             value: definition.channel,
         },
         encode: {
-            value: encodeCode.compile<StaticEndpointType<T>['encode']>(defInfo.varuintSizeCalc.length > 0 ? {
+            value: compile<StaticEndpointType<T>['encode']>(encodeCode, defInfo.varuintSizeCalc.length > 0 ? {
                 Buffer,
                 getViLen: findLength,
             } : {
@@ -92,12 +104,16 @@ const StaticEndpoint = <T extends Definition> (definition: T) => {
             })
         },
         decode: {
-            value: decodeCode.compile<StaticEndpointType<T>['decode']>(defInfo.validate ? {
+            value: compile<StaticEndpointType<T>['decode']>(decodeCode, defInfo.validate ? {
                 ReadonlyBuffer,
                 vd: defInfo.validators
             } : {
                 ReadonlyBuffer
             })
+        },
+        definition: {
+            value: definition,
+            enumerable: true
         }
     })) as StaticEndpointType<T>
 }

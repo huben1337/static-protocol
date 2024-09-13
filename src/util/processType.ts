@@ -1,10 +1,15 @@
 import { InputDataTypes } from "../types/definition.js"
 import { INTERNAL_TYPES } from "./types.js"
 
-const processType = (def: keyof InputDataTypes | 'none') => {
+const extractType = (def: keyof InputDataTypes | 'none') => {
     const defMatch = /^([a-zA-Z]+):?([0-9]+)?$/.exec(def)
     if (defMatch === null) throw new Error(`Invalid type: ${def.toString()}`)
     const [,type, bytes] = defMatch
+    return { type, bytes }
+}
+
+const processType = (def: keyof InputDataTypes | 'none') => {
+    const { type, bytes } = extractType(def)
     switch (type) {
         case 'buf':
         case 'char': {
@@ -68,3 +73,4 @@ const processType = (def: keyof InputDataTypes | 'none') => {
 }
 
 export default processType
+export { extractType }

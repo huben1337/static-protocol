@@ -1,22 +1,15 @@
 import { Definition } from "../types/definition.js"
 import Code from "./Code.js"
-import { DefinitionInfo } from "../util/structure.js"
+import { DefinitionInfo, Fields } from "../util/structure.js"
 import { INTERNAL_TYPES } from "../util/types.js"
 import { addFieldsStatic } from "./addFields.js"
-import getObjectStructure from "./getObjectStructure.js"
-
-const addEnumSizeCalc = (defInfo: DefinitionInfo, encodeCode: Code) => {
-    defInfo.fields.enum.forEach(({ varName, cases }) => {
-        const encodeSwitch = encodeCode.switch(`${varName}.id`)
+const addEnumSizeCalc = (enumFields: Fields['enum'], encodeCode: Code) => {
+    enumFields.forEach(({ varName, cases }) => {
+        encodeCode.add(`const ${varName}_id = ${varName}.id`)
+        const encodeSwitch = encodeCode.switch(`${varName}_id`)
         cases.forEach(({ id, idString, nested, def }) => {
-            const encodeCase = encodeSwitch.case(idString ?? `${id}`)
-            if (nested) {
-                if (def.args.varArgs.length > 0) {
-                    const objectStructure = getObjectStructure(def.args.varArgs)
-                    encodeCase.add(`const ${objectStructure} = ${varName}.value`)
-                }
-                encodeCase.add(`bufferLength += ${def.getBufferSize()}`)
-            } else {
+            if (!nested) {
+                const encodeCase = encodeSwitch.case(idString ?? `${id}`)
                 const { type, size } = def
                 switch (type) {
                     case INTERNAL_TYPES.INT:
@@ -43,16 +36,57 @@ const addEnumSizeCalc = (defInfo: DefinitionInfo, encodeCode: Code) => {
                     }
                     default: throw new Error(`Unknown type ${type}`)
                 }
+                encodeCase.add('break')
+            } else if (def.hasSizeCalc()) {
+                const encodeCase = encodeSwitch.case(idString ?? `${id}`)
+                const objectStructure = def.args.varArgsToString()
+                if (objectStructure) {
+                    encodeCase.add(`const ${objectStructure} = ${varName}.value`)
+                }
+                encodeCase.add(`bufferLength += ${def.getSizeCalc()}`)
+                encodeCase.add('break')
             }
-            encodeCase.add('break')
         })
     })
 }
 
-const addEncodeDecode = <T extends Definition> (defInfo: DefinitionInfo, channel: T['channel'], allocateNew: T['allocateNew'], encodeCode: Code, decodeCode: Code, assignStatement = '', validatorPrefix: string) => {
-    const objTemplate = getObjectStructure(defInfo.args.args)
+const addLengthIdentifiers = (fields: Fields, encodeCode: Code) => {
+    fields.array.forEach(({ varName }) => {
+        encodeCode.add(`const ${varName}_length = ${varName}.length`)
+    })
+    fields.nestedArray.forEach(({ varName }) => {
+        encodeCode.add(`const ${varName}_length = ${varName}.length`)
+    })
+    fields.varchar.forEach(({ varName }) => {
+        encodeCode.add(`const ${varName}_length = ${varName}.length`)
+    })
+    fields.varbuf.forEach(({ varName }) => {
+        encodeCode.add(`const ${varName}_length = ${varName}.length`)
+    })
+}
 
-    encodeCode.add(`${assignStatement} ((${objTemplate.length > 4 ? objTemplate : ''}) => {`)
+const hasEnums = (fields: Fields): boolean => {
+    return fields.enum.length > 0 || fields.nestedArray.some(({ def: { fields } }) => hasEnums(fields))
+}
+
+const addEnumSizeCalcDeep = (fields: Fields, encodeCode: Code) => {
+    if (fields.enum.length > 0) {
+        addEnumSizeCalc(fields.enum, encodeCode)
+    }
+    fields.nestedArray.forEach(({ def, varName, objectStructure }) => {
+        if (!objectStructure) return
+        encodeCode.add(`for (const ${objectStructure} of ${varName}) {`)
+        encodeCode.indent++
+        addEnumSizeCalcDeep(def.fields, encodeCode)
+        encodeCode.indent--
+        encodeCode.add('}')
+    })
+}
+
+const addEncodeDecode = <T extends Definition> (defInfo: DefinitionInfo, channel: T['channel'], allocateNew: T['allocateNew'], encodeCode: Code, decodeCode: Code, assignStatement = '', validatorPrefix: string) => {
+    const objTemplate = defInfo.args.toString()
+
+    encodeCode.add(`${assignStatement} ((${objTemplate ?? ''}) => {`)
 
     encodeCode.indent++
     for (const calc of defInfo.varuintSizeCalc) {
@@ -61,45 +95,41 @@ const addEncodeDecode = <T extends Definition> (defInfo: DefinitionInfo, channel
 
     decodeCode.add(`${assignStatement} ((input) => {`)
     
-    decodeCode.indent++
     
-    decodeCode.add('const buffer = ArrayBuffer.isView(input) ? ReadonlyBuffer.wrap(input) : input')
+    if (objTemplate) {
+        decodeCode.indent++
+        decodeCode.add('const buffer = ArrayBuffer.isView(input) ? ReadonlyBuffer.wrap(input) : input')
+    }
+    
     
     if (channel !== undefined) {
-        defInfo.fixedSize++
+        defInfo.baseSize++
     }
 
-    const bufferSize = defInfo.getBufferSize()
+    const sizeCalc = defInfo.getSizeCalc()
     let bufferOffset = 0
-    if (defInfo.fields.enum.length > 0 || defInfo.fields.nestedArray.some(({ def }) => def.fields.enum.length > 0)) {
+    if (hasEnums(defInfo.fields)) {
+        addLengthIdentifiers(defInfo.fields, encodeCode)
         // Determine buffer length if length is dependent on enum
-        encodeCode.add(`let bufferLength = ${bufferSize}`)
-        addEnumSizeCalc(defInfo, encodeCode)
-        defInfo.fields.nestedArray.forEach(({ def, varName, objectStructure }) => {
-            encodeCode.add(`for (const ${objectStructure} of ${varName}) {`)
-            encodeCode.indent++
-            addEnumSizeCalc(def, encodeCode)
-            encodeCode.indent--
-            encodeCode.add('}')
-        })
+        encodeCode.add(`let bufferLength = ${sizeCalc}`)
+        addEnumSizeCalcDeep(defInfo.fields, encodeCode)
         encodeCode.add('const buffer = Buffer.alloc(bufferLength)')
         if (channel !== undefined) {
             encodeCode.add(`buffer.setUint8(${channel}, ${bufferOffset++})`)
         }
 
+    } else if (defInfo.computedSize.length > 0 || allocateNew === true) {
+        addLengthIdentifiers(defInfo.fields, encodeCode)
+        encodeCode.add(`const buffer = Buffer.alloc(${sizeCalc})`)
+        if (channel !== undefined) {
+            encodeCode.add(`buffer.setUint8(${channel}, ${bufferOffset++})`)
+        }
     } else {
-        if (defInfo.sizeCalc.length > 0 || allocateNew === true) {
-            encodeCode.add(`const buffer = Buffer.alloc(${bufferSize})`)
-            if (channel !== undefined) {
-                encodeCode.add(`buffer.setUint8(${channel}, ${bufferOffset++})`)
-            }
-        } else {
-            encodeCode.insert(`const buffer = Buffer.alloc(${bufferSize})`, 1)
-            if (channel !== undefined) {
-                encodeCode.insert(`buffer.setUint8(${channel}, ${bufferOffset++})`, 2)
-            }
-        }  
-    }
+        encodeCode.insert(`const buffer = Buffer.alloc(${sizeCalc})`, 1)
+        if (channel !== undefined) {
+            encodeCode.insert(`buffer.setUint8(${channel}, ${bufferOffset++})`, 2)
+        }
+    }  
     
     
 
@@ -109,10 +139,11 @@ const addEncodeDecode = <T extends Definition> (defInfo: DefinitionInfo, channel
     encodeCode.indent--
     encodeCode.add('})')
 
-    if (objTemplate.length > 4) {
+    if (objTemplate) {
         decodeCode.add(`return ${objTemplate}`)
+        decodeCode.indent--
     }
-    decodeCode.indent--
+    
     decodeCode.add('})')
 
     return { encodeCode, decodeCode }
