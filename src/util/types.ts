@@ -1,4 +1,4 @@
-const enum INTERNAL_TYPES {
+export const enum INTERNAL_TYPES {
     BUF,
     VARBUF,
     CHAR,
@@ -10,6 +10,6 @@ const enum INTERNAL_TYPES {
     VARUINT
 }
 
-export {
-    INTERNAL_TYPES,
+export type DeepReadonly<T> = {
+    readonly [K in keyof T]: DeepReadonly<T[K]>
 }
