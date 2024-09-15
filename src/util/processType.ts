@@ -25,8 +25,8 @@ const processType = (def: keyof InputDataTypes | 'none') => {
             if (bytes) {
                 const maxSize = parseInt(bytes)
                 if (maxSize < 0) throw new Error('Max size must be positive integer')
-                if (maxSize > 1 << 16) throw new Error('Max string length is 65536')
-                if (maxSize > 1 << 8) {
+                if (maxSize >= 1 << 16) throw new Error('Max string length is 65535')
+                if (maxSize >= 1 << 8) {
                     return {
                         type: type === 'varbuf' ? INTERNAL_TYPES.VARBUF : INTERNAL_TYPES.VARCHAR,
                         size: 2

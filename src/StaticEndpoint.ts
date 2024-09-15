@@ -24,10 +24,10 @@ const Enum = <T extends EnumDefintion>(def: T) => {
  * 
  * @param def - Array definition
  */
-const List = <T extends ArrayFieldTypes>(def: T, maxSize = 256) => {
+const List = <T extends ArrayFieldTypes>(def: T, maxSize = 255) => {
     return {
         def,
-        long: maxSize > 256,
+        long: maxSize > 255,
         isArray: true as const
     }
 }

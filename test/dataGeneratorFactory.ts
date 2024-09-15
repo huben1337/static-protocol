@@ -5,7 +5,7 @@ import { extractType } from "../src/util/processType.js"
 import type { DeepReadonly } from "../src/util/types.js"
 
 export const random = {
-    between: (min: number, max: number) => Math.floor(Math.random() * (max - min + 1) + min),
+    between: (min: number, max: number) => Math.floor(Math.random() * (max - min) + min),
     arrayElement: <T>(array: T[]): T => array[Math.floor(Math.random() * array.length)]
 }
 
