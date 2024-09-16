@@ -1,0 +1,88 @@
+<svg fill="none" viewBox="0 0 1000 340" width="1000" height="340" xmlns="http://www.w3.org/2000/svg">
+    <foreignObject width="100%" height="100%">
+        <div xmlns="http://www.w3.org/1999/xhtml">
+            <style>
+                .graph-container {
+                    position: relative;
+                    width: fit-content;
+                    --bar-top-padding: 2px;
+                    --bar-height: 20rem;
+                    margin-left: 2rem;
+                    font-size: 14px;
+                    --text-color: #f0f6fc; 
+                    color: var(--text-color);
+                    font-family: -apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans",Helvetica,Arial,sans-serif,"Apple Color Emoji","Segoe UI Emoji"
+                }
+                .graph {
+                    display: flex;
+                    align-items: end;
+                }
+                .entry {
+                    position: relative;
+                    display: flex;
+                    flex-direction: column;
+                    align-items: center;
+                    margin: 0 8px;
+                }
+                .bar {
+                    padding: var(--bar-top-padding) 5px 0px 5px;
+                    border-radius: 3px 3px 0 0;
+                    width: fit-content;
+                    color: #fff;
+                }
+                .line-container {
+                    height: calc(var(--bar-height) - 0px);
+                    width: 100%;
+                    position: absolute;
+                }
+                .line {
+                    position: absolute;
+                    height: 1px;
+                    width: 100%;
+                    background-color: #3d444db3;
+                    z-index: -1;
+                }
+                .y-text {
+                    position: absolute;
+                    writing-mode: vertical-rl;
+                    transform: translate(-28px, calc(-50% + var(--bar-height) / 2)) rotate(180deg);
+                }
+                @media (prefers-color-scheme: light) {
+                    .graph-container {
+                        --text-color: #000;
+                    }
+                }
+            </style>
+            <div class="graph-container">
+                <div class="y-text">
+                    Operations per Second
+                </div>
+                <div class="line-container">
+                    <div class="line" style="top: 0"></div>
+                    <div class="line" style="top: 25%"></div>
+                    <div class="line" style="top: 50%"></div>
+                    <div class="line" style="top: 75%"></div>
+                    <div class="line" style="top: 100%"></div>
+                </div>
+                <div class="graph">                
+                    <div class="entry">
+                        <div class="bar" style="height: calc(var(--bar-height) * 0.245  - var(--bar-top-padding)); background-color: #731ae8;">300 285</div>
+                        <div class="label">json-encode</div>
+                    </div>
+                    <div class="entry">
+                        <div class="bar" style="height: calc(var(--bar-height) * 0.782  - var(--bar-top-padding)); background-color: #9a1ae8;">958 254</div>
+                        <div class="label">static-protocol-encode</div>
+                    </div>
+                    <div class="entry">
+                        <div class="bar" style="height: calc(var(--bar-height) * 0.221  - var(--bar-top-padding)); background-color: #711ae8;">270 917</div>
+                        <div class="label">json-decode</div>
+                    </div>
+                    <div class="entry">
+                        <div class="bar" style="height: calc(var(--bar-height) * 1.000  - var(--bar-top-padding)); background-color: #aa1ae8;">1 224 707</div>
+                        <div class="label">static-protocol-decode</div>
+                    </div>
+      </div>
+            </div>
+        </div>
+    </foreignObject>
+</svg>

@@ -8,8 +8,6 @@ import Code from "../src/codegen/Code.js"
 import { readFile, writeFile } from "fs/promises"
 import { join } from "path"
 
-console.log(argv)
-
 declare const gc: () => void
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
 
@@ -38,12 +36,11 @@ const runTest = async <T, U> (label: string, dataIterable: IterableIterator<T> |
     return resultData
 }
 
-const RUNS_PER_TEST = 5
-const TEST_ITERATIONS = 500_000
+const RUNS_PER_TEST = 10
+const TEST_ITERATIONS = 100_000
 
 const randomDefinition = randomDefinitionFactory({
     maxDepth: 3,
-    allowArrays: true,
     fieldTypesConfig: {
         uint64: false,
         int64: false,
@@ -52,7 +49,7 @@ const randomDefinition = randomDefinitionFactory({
     }
 })
 
-for (let i = 0; i < 50; i++) {
+for (let i = 0; i < 100; i++) {
     const def = randomDefinition()
     // console.dir(def, { depth: null })
     const ep = StaticEndpoint(def)
@@ -163,19 +160,19 @@ if (INJECT_GRAPH) {
         code.indent++
         const relativeBarHeight = (opsPerSecond / maxPerfValue)
         const color = getBarColor(relativeBarHeight, hexToRgb('#621ae8'), hexToRgb('#aa1ae8'))
-        const barText = threeDigitParts.join('&thinsp;')
+        const barText = threeDigitParts.join('\u2009')
         code.add(`<div class="bar" style="height: calc(var(--bar-height) * ${relativeBarHeight.toFixed(3)}  - var(--bar-top-padding)); background-color: ${color};">${barText}</div>`)
         code.add(`<div class="label">${label}</div>`)
         code.indent--
         code.add('</div>')
     }
     code.indent--
-    const readMePath = join(import.meta.dirname, '../../README.md')
+    const path = join(import.meta.dirname, '../../assets/graph.svg')
     log('Injecting HTML Graph...')
-    const readMeBuffer = await readFile(readMePath)
+    const graphFileBuffer = await readFile(path)
     const graphDivOpen = '<div class="graph">'
-    const graphDivStart = readMeBuffer.indexOf(graphDivOpen)
-    if (graphDivStart === -1) throw new Error('Graph div not found in README.md')
+    const graphDivStart = graphFileBuffer.indexOf(graphDivOpen)
+    if (graphDivStart === -1) throw new Error('Graph div not found.')
     let lastDivOpenIndex = graphDivStart + graphDivOpen.length
     let lastDivCloseIndex = lastDivOpenIndex
     let openDivs = 1
@@ -184,19 +181,19 @@ if (INJECT_GRAPH) {
     // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
     while (true) {
         while (lastDivCloseIndex <= lastDivOpenIndex) {
-            lastDivCloseIndex = readMeBuffer.indexOf(closeDiv, lastDivCloseIndex)
-            if (lastDivCloseIndex === -1) throw new Error('Graph was not closed in README.md')
+            lastDivCloseIndex = graphFileBuffer.indexOf(closeDiv, lastDivCloseIndex)
+            if (lastDivCloseIndex === -1) throw new Error('Graph was not closed.')
             lastDivCloseIndex += closeDiv.length
             openDivs--
         }
 
         
         while (lastDivOpenIndex <= lastDivCloseIndex) {
-            lastDivOpenIndex = readMeBuffer.indexOf('<div', lastDivOpenIndex + 1)
+            lastDivOpenIndex = graphFileBuffer.indexOf('<div', lastDivOpenIndex + 1)
             if (lastDivOpenIndex === -1) {
                 while (openDivs > 0) {
-                    lastDivCloseIndex = readMeBuffer.indexOf(closeDiv, lastDivCloseIndex)
-                    if (lastDivCloseIndex === -1) throw new Error('Graph was not closed in README.md')
+                    lastDivCloseIndex = graphFileBuffer.indexOf(closeDiv, lastDivCloseIndex)
+                    if (lastDivCloseIndex === -1) throw new Error('Graph was not closed.')
                     lastDivCloseIndex += closeDiv.length
                     openDivs--
                 }
@@ -212,10 +209,10 @@ if (INJECT_GRAPH) {
         }
     }
     let graphDivIndent = 0
-    const lastLine = readMeBuffer.lastIndexOf('\n', graphDivStart)
+    const lastLine = graphFileBuffer.lastIndexOf('\n', graphDivStart)
     if (lastLine !== -1) {
         for (let i = lastLine + 1; i < graphDivStart; i++) {
-            if (readMeBuffer[i] === ' '.charCodeAt(0)) {
+            if (graphFileBuffer[i] === ' '.charCodeAt(0)) {
                 graphDivIndent++
             } else {
                 graphDivIndent = 0
@@ -225,12 +222,12 @@ if (INJECT_GRAPH) {
     }
     const start = graphDivStart + graphDivOpen.length
     const newGraphDiv = code.toString(Math.floor(graphDivIndent / 4))
-    const newReadFileBuffer = Buffer.alloc(start + newGraphDiv.length + (readMeBuffer.length - end))
-    readMeBuffer.copy(newReadFileBuffer, 0, 0, start)
-    readMeBuffer.copy(newReadFileBuffer, start + newGraphDiv.length, end, readMeBuffer.length)
-    newReadFileBuffer.write(newGraphDiv, start, newGraphDiv.length)
-    await writeFile(readMePath, newReadFileBuffer)
-    log('Successfully injected HTML Graph into README.md')
+    const newGraphFileBuffer = Buffer.alloc(start + newGraphDiv.length + (graphFileBuffer.length - end))
+    graphFileBuffer.copy(newGraphFileBuffer, 0, 0, start)
+    graphFileBuffer.copy(newGraphFileBuffer, start + newGraphDiv.length, end, graphFileBuffer.length)
+    newGraphFileBuffer.write(newGraphDiv, start, newGraphDiv.length)
+    await writeFile(path, newGraphFileBuffer)
+    log('Successfully injected HTML Graph.')
 }
 
 // Max depth: 3

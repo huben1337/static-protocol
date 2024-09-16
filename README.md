@@ -100,6 +100,13 @@ The second argument to `StaticProtocol` is optional and indicates if the protoco
 | `buf`            | `Uint8Array`       | Fixed length buffer        |
 | `varbuf`         | `Uint8Array`       | Variable length buffer     |
 
+## Benchmarks
+ 
+Run `npm run bench` to run the benchmark.
+
+Use `--inject-graph` to output a graph into this readme.
+
+<img src="./assets/graph.svg">
 
 ## To-Do
 - Add support for varints
