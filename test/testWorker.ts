@@ -2,22 +2,22 @@ import { workerData } from "worker_threads"
 import { StaticEndpoint } from "../src/StaticEndpoint.js"
 import { BufferLike } from "../src/util/Buffer.js"
 import dataGeneratorFactory from "./dataGeneratorFactory.js"
-import randomDataDefinition from "./generateDataDefintion.js"
+import randomDefinitionFactory from "./randomDefinitionFactory.js"
 import deepEqual from "deep-equal"
 
 
 const iterationTracker = new Uint32Array(workerData as SharedArrayBuffer)
 
 
+const randomDefinition = randomDefinitionFactory({
+    maxDepth: 4
+})
+
 // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
 while (true) {
-    const def = randomDataDefinition(4)
+    const def = randomDefinition()
     try {
-        const ep = StaticEndpoint({
-            data: def,
-            channel: 1,
-            validate: false,
-        })
+        const ep = StaticEndpoint(def)
         const gen = dataGeneratorFactory(ep) as () => unknown
         
         for (let i = 0; i < 1; i++) {
