@@ -9,7 +9,7 @@ export const random = {
     arrayElement: <T>(array: T[]): T => array[Math.floor(Math.random() * array.length)]
 }
 
-const varLegnth = (long: boolean) => long ? random.between(0, 270) : random.between(20, 50)
+const varLegnth = (long: boolean) => long ? random.between(0, 270) : random.between(0, 30)
 
 const generators: {
     [K in keyof IntTypes]: () => IntTypes[K]
