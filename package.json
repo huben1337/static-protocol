@@ -16,6 +16,7 @@
   "scripts": {
     "build": "tsc -b",
     "test": "tsc -p tsconfig.test.json && node dist/test/test.js",
+    "bench": "tsc -b && node --expose-gc dist/test/bench.js --debug-log",
     "demo": "tsc -p tsconfig.neutral.json && node dist/examples/demo.js"
   },
   "author": "huben1337",
