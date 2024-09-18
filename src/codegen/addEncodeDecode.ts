@@ -93,12 +93,12 @@ const addEncodeDecode = <T extends Definition> (defInfo: DefinitionInfo, channel
         encodeCode.add(calc)
     }
 
-    decodeCode.add(`${assignStatement} ((input) => {`)
+    decodeCode.add(`${assignStatement} ((buffer) => {`)
     
     
     if (objTemplate) {
         decodeCode.indent++
-        decodeCode.add('const buffer = ArrayBuffer.isView(input) ? ReadonlyBuffer.wrap(input) : input')
+        // decodeCode.add('const buffer = ArrayBuffer.isView(input) ? ReadonlyBuffer.wrap(input) : input')
     }
     
     
@@ -113,23 +113,25 @@ const addEncodeDecode = <T extends Definition> (defInfo: DefinitionInfo, channel
         // Determine buffer length if length is dependent on enum
         encodeCode.add(`let bufferLength = ${sizeCalc}`)
         addEnumSizeCalcDeep(defInfo.fields, encodeCode)
-        encodeCode.add('const buffer = Buffer.alloc(bufferLength)')
+        encodeCode.insert(`const buffer = Buffer.alloc(1, 0xffffffff)`, 1)
         if (channel !== undefined) {
-            encodeCode.add(`buffer.setUint8(${channel}, ${bufferOffset++})`)
+            encodeCode.insert(`buffer.setUint8(${channel}, ${bufferOffset++})`, 2)
         }
+        encodeCode.add('buffer.resize(bufferLength)')
 
-    } else if (defInfo.computedSize.length > 0 || allocateNew === true) {
+    } else if (defInfo.computedSize.length > 0) {
         addLengthIdentifiers(defInfo.fields, encodeCode)
-        encodeCode.add(`const buffer = Buffer.alloc(${sizeCalc})`)
+        encodeCode.insert(`const buffer = Buffer.alloc(1, 0xffffffff)`, 1)
         if (channel !== undefined) {
-            encodeCode.add(`buffer.setUint8(${channel}, ${bufferOffset++})`)
+            encodeCode.insert(`buffer.setUint8(${channel}, ${bufferOffset++})`, 2)
         }
+        encodeCode.add(`buffer.resize(${sizeCalc})`)
     } else {
         encodeCode.insert(`const buffer = Buffer.alloc(${sizeCalc})`, 1)
         if (channel !== undefined) {
             encodeCode.insert(`buffer.setUint8(${channel}, ${bufferOffset++})`, 2)
         }
-    }  
+    }
     
     
 

@@ -101,7 +101,7 @@ type DefinedTypeInput<T extends FieldTypes> = T extends keyof InputDataTypes ? I
 
 type DefinedTypeOutput<T extends FieldTypes> = T extends keyof OutputDataTypes ? OutputDataTypes[T] : (
     T extends ExtendedFieldType ? OutputDataTypes[T['type']] : (
-        T extends ArrayDefintionInternal ? DefinedTypeOutput<T['def']>[] : (
+        T extends ArrayDefintionInternal ? ArrayTypeOutput<T['def']> : (
             T extends EnumDefintionInternal ? EnumTypeOutput<T['def']> : (
                 T extends DataDefintion ? {
                     [K in keyof T as HasData<T[K]> extends false ? never : K]: DefinedTypeOutput<T[K]>
@@ -109,6 +109,18 @@ type DefinedTypeOutput<T extends FieldTypes> = T extends keyof OutputDataTypes ?
             )
         )
     )
+)
+
+type ArrayTypeOutput<T extends ArrayFieldTypes> = (
+    T extends 'int8' ? Int8Array
+    : T extends 'uint8' ? Uint8Array
+    : T extends 'int16' ? Int16Array
+    : T extends 'uint16' ? Uint16Array
+    : T extends 'int32' ? Int32Array
+    : T extends 'uint32' ? Uint32Array
+    : T extends 'int64' ? BigInt64Array
+    : T extends 'uint64' ? BigUint64Array
+    : T[]
 )
 
 type EnumTypeInput<T extends EnumDefintion> = ValueType<{
