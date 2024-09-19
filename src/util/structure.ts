@@ -43,7 +43,9 @@ class ArgsObject {
     }
 }
 
-const FieldList = Array<{varName: string, size: number, validate: boolean}>
+export type Field = { varName: string, size: number, validate: boolean }
+
+const FieldList = Array<Field>
 
 type EnumCase = { 
     id: number,
