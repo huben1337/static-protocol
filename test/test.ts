@@ -1,13 +1,13 @@
 import { StaticEndpoint } from "../src/StaticEndpoint.js"
 import { BufferLike } from "../src/util/Buffer.js"
 import dataGeneratorFactory from "./dataGeneratorFactory.js"
+import outputCheckerFactory from "./outputCheckerFactory.js"
 import randomDefintionFactory from "./randomDefinitionFactory.js"
-import deepEqual from "deep-equal"
 
 let i = 0
 
 const randomDefinition = randomDefintionFactory({
-    maxDepth: 3,
+    maxDepth: 4,
 })
 
 // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
@@ -16,17 +16,17 @@ while (true) {
     try {
         const ep = StaticEndpoint(def)
         const gen = dataGeneratorFactory(ep) as () => unknown
-        
+        const check = outputCheckerFactory(ep) as (data: unknown, output: unknown) => void
         for (let i = 0; i < 5; i++) {
             const data = gen()
             const en = (ep.encode as (data: unknown) => BufferLike)(data)
             const de = (ep.decode as (buffer: BufferLike) => unknown)(en) 
-            if(!deepEqual(de, data)) {
-                
+            try {
+                check(de, data)
+            } catch (error) {
                 console.dir(data, { depth: null })
                 console.dir(de, { depth: null })
-
-                throw new Error('Not equal')
+                throw error
             }
         }
 

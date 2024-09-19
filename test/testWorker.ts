@@ -3,8 +3,7 @@ import { StaticEndpoint } from "../src/StaticEndpoint.js"
 import { BufferLike } from "../src/util/Buffer.js"
 import dataGeneratorFactory from "./dataGeneratorFactory.js"
 import randomDefinitionFactory from "./randomDefinitionFactory.js"
-import deepEqual from "deep-equal"
-
+import outputCheckerFactory from "./outputCheckerFactory.js"
 
 const iterationTracker = new Uint32Array(workerData as SharedArrayBuffer)
 
@@ -19,12 +18,13 @@ while (true) {
     try {
         const ep = StaticEndpoint(def)
         const gen = dataGeneratorFactory(ep) as () => unknown
+        const check = outputCheckerFactory(ep) as (data: unknown, output: unknown) => void
         
         for (let i = 0; i < 1; i++) {
             const data = gen()
             const en = (ep.encode as (data: unknown) => BufferLike)(data)
             const de = (ep.decode as (buffer: BufferLike) => unknown)(en) 
-            if(!deepEqual(de, data)) throw new Error('Not equal')
+            check(de, data)
         }
 
         const i = iterationTracker[0]++
@@ -39,8 +39,7 @@ while (true) {
         })
     } catch (error) {
         // console.log(error)
-        console.log('\nFailed with definition:')
-        console.dir(def, { depth: null })
+        console.log('\n\n\n\nFailed!')
         process.exit(1)
     }
 }
