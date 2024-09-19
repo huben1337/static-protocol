@@ -1,8 +1,7 @@
 import Code from './Code.js'
 import { DefinitionInfo, EnumCase } from '../util/structure.js'
 import { INTERNAL_TYPES } from '../util/types.js'
-
-const INT_ARRAYS = false
+import config from '../config.js'
 
 const addArrayField = ( varName: string, type: INTERNAL_TYPES, size: number, validate: boolean, encodeCode: Code, decodeCode: Code, validatorPrefix: string, lengthVar: string, first: boolean) => {
     if (type === INTERNAL_TYPES.BOOL) {
@@ -48,10 +47,10 @@ const addArrayField = ( varName: string, type: INTERNAL_TYPES, size: number, val
         decodeCode.add('}')
         return
     }
-    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-    if (INT_ARRAYS && (type === INTERNAL_TYPES.INT || type === INTERNAL_TYPES.UINT)) {
-        const methodSize = `${size * 8}`
 
+    if (config.INT_ARRAYS && (type === INTERNAL_TYPES.INT || type === INTERNAL_TYPES.UINT)) {
+        const methodSize = `${size * 8}`
+        encodeCode.add(`if (offset % ${size} !== 0) offset += ${size} - (offset % ${size})`)
         encodeCode.add(`for (const entry of ${varName}) {`)
         encodeCode.indent++
         encodeCode.add(`buffer.setUint${methodSize}(entry, offset)`)
@@ -59,7 +58,9 @@ const addArrayField = ( varName: string, type: INTERNAL_TYPES, size: number, val
         encodeCode.indent--
         encodeCode.add(`}`)
 
-        decodeCode.add(`const ${varName} = new ${type === INTERNAL_TYPES.UINT ? 'Uint' : 'Int'}${methodSize}Array(buffer.subarray(offset, offset += (${size} * ${lengthVar})))`)
+        decodeCode.add(`if (offset % ${size} !== 0) offset += ${size} - (offset % ${size})`)
+        decodeCode.add(`const ${varName} = new ${size === 8 ? 'Big' : ''}${type === INTERNAL_TYPES.UINT ? 'Uint' : 'Int'}${methodSize}Array(buffer.buffer, offset, ${lengthVar})`)
+        decodeCode.add(`offset += ${lengthVar} * ${size}`)
         return
     }
     encodeCode.add(`for (const entry of ${varName}) {`)

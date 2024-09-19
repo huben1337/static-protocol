@@ -1,3 +1,4 @@
+import config from "../config.js";
 import { ArrayDefintionInternal, DataDefintion, EnumDefintionInternal, ExtendedFieldType } from "../types/definition.js";
 import processDataDefinition from "./processDataDefinition.js";
 import processEnumDefinition from "./processEnumDefinition.js";
@@ -21,6 +22,10 @@ const processArrayDefinition = (definition: ArrayDefintionInternal, varName: str
             ? ` + ${varName}.reduce((a, b) => a + b.length, 0)`
             : ''
         }`
+        if (config.INT_ARRAYS && (type === INTERNAL_TYPES.INT || type === INTERNAL_TYPES.UINT)) {
+            // for padding
+            defInfo.baseSize += size - 1
+        }
         defInfo.computedSize.push(sizeCalc)
 
         const validate = defInfo.validate && !isSimpleField
