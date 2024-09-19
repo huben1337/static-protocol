@@ -30,7 +30,7 @@ export const generators: {
     uint16: () => (Math.random() * 0xffff) >>> 0,
     int16: () => generators.uint16() - (1 << 15),
     uint32: () => (Math.random() * 0xffffffff) >>> 0,
-    int32: () => generators.uint32() - (1 << 31),
+    int32: () => generators.uint32() - ((1 << 31) >>> 0),
     uint64: () => BigInt(generators.uint32()) << 32n | BigInt(generators.uint32()),
     int64: () => generators.uint64() - (1n << 63n),
     bool: () => Math.random() > 0.5,
@@ -82,7 +82,7 @@ const getFieldGenerator = (defintion: keyof InputDataTypes | 'none') => {
         }
         case 'int':
         case 'uint':
-            return `generators.${type}${parseInt(bytes)}()`
+            return `generators.${type}${bytes}()`
 
         case 'bool':
             return 'generators.bool()'

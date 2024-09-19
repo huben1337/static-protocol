@@ -6,7 +6,7 @@ const decoder = new TextDecoder()
 
 const INT_8_OFFSET = 1 << 7
 const INT_16_OFFSET = 1 << 15
-const INT_32_OFFSET = 1 << 31
+const INT_32_OFFSET = (1 << 31) >>> 0
 const INT_64_OFFSET = 1n << 63n
 
 
@@ -81,7 +81,7 @@ class Buffer {
 
     setUint16 (value: number, offset = 0) {
         this.view[offset] = value
-        this.view[offset + 1] = (value >>> 8)
+        this.view[offset + 1] = (value >> 8)
     }
 
     getUint16 (offset = 0) {
@@ -98,9 +98,9 @@ class Buffer {
 
     setUint32 (value: number, offset = 0) {
         this.view[offset] = value
-        this.view[offset + 1] = (value >>> 8)
-        this.view[offset + 2] = (value >>> 16)
-        this.view[offset + 3] = (value >>> 24)
+        this.view[offset + 1] = (value >> 8)
+        this.view[offset + 2] = (value >> 16)
+        this.view[offset + 3] = (value >> 24)
     }
 
     getUint32 (offset = 0) {
@@ -118,14 +118,14 @@ class Buffer {
     setUint64 (value: bigint, offset = 0) {
         const low = Number(value & 0xffffffffn)
         this.view[offset] = low
-        this.view[offset + 1] = (low >>> 8)
-        this.view[offset + 2] = (low >>> 16)
-        this.view[offset + 3] = (low >>> 24)
+        this.view[offset + 1] = (low >> 8)
+        this.view[offset + 2] = (low >> 16)
+        this.view[offset + 3] = (low >> 24)
         const high = Number((value >> 32n) & 0xffffffffn)
         this.view[offset + 4] = high
-        this.view[offset + 5] = (high >>> 8)
-        this.view[offset + 6] = (high >>> 16)
-        this.view[offset + 7] = (high >>> 24)
+        this.view[offset + 5] = (high >> 8)
+        this.view[offset + 6] = (high >> 16)
+        this.view[offset + 7] = (high >> 24)
     }
 
     getUint64 (offset = 0) {
