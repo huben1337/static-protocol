@@ -6,6 +6,8 @@ type IntTypes = {
     int8: number
     uint16: number
     int16: number
+    uint24: number
+    int24: number
     uint32: number
     int32: number
     uint64: bigint

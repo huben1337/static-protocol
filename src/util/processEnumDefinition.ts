@@ -2,7 +2,7 @@ import { EnumDefintionInternal } from "../types/definition.js"
 import processEnumCase from "./processEnumCase.js"
 import { DefinitionInfo, EnumCase } from "./structure.js"
 
-const processEnumDefinition = (definition: EnumDefintionInternal, varName: string, defInfo: DefinitionInfo) => {
+const processEnumDefinition = (definition: EnumDefintionInternal, defInfo: DefinitionInfo, varName = defInfo.getVarName()) => {
     const enumEntries = Object.entries(definition.def)
     // if (subFields.some((value) => value.match(/^[^0-9]+$/))) throw new Error('Enum can only contain numbers as ids')
     const usedIds = new Set<number>()
@@ -32,6 +32,7 @@ const processEnumDefinition = (definition: EnumDefintionInternal, varName: strin
         usesMappedIds: mappedId > 0
     })
     defInfo.baseSize++
+    return varName
 }
 
 export default processEnumDefinition

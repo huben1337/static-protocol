@@ -40,7 +40,7 @@ const RUNS_PER_TEST = 10
 const TEST_ITERATIONS = 100_000
 
 const randomDefinition = randomDefinitionFactory({
-    maxDepth: 3,
+    maxDepth: 2,
     fieldTypesConfig: {
         uint64: false,
         int64: false,

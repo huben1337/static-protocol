@@ -1,5 +1,5 @@
 import Code from './Code.js'
-import { DefinitionInfo, EnumCase } from '../util/structure.js'
+import { DefinitionInfo, EnumCase, Field } from '../util/structure.js'
 import { INTERNAL_TYPES } from '../util/types.js'
 import config from '../config.js'
 
@@ -10,7 +10,7 @@ const addArrayField = ( varName: string, type: INTERNAL_TYPES, size: number, val
         encodeCode.add(`for (; j >= 7; j -= 8) {`)
         encodeCode.indent++
         const packString = Array.from({ length: 8 }, (_, index) => `${varName}[j - ${index}] << ${index}`).join(' | ')
-        encodeCode.add(`buffer.setInt8(${packString}, offset++)`)
+        encodeCode.add(`buffer.setUint8(${packString}, offset++)`)
         encodeCode.indent--
         encodeCode.add('}')
         encodeCode.add(`if (j >= 0) {`)
@@ -21,7 +21,7 @@ const addArrayField = ( varName: string, type: INTERNAL_TYPES, size: number, val
         encodeCode.add(`packed |= ${varName}[j] << j`)
         encodeCode.indent--
         encodeCode.add('}')
-        encodeCode.add(`buffer.setInt8(packed, offset++)`)
+        encodeCode.add(`buffer.setUint8(packed, offset++)`)
         encodeCode.indent--
         encodeCode.add('}')
 
@@ -53,7 +53,7 @@ const addArrayField = ( varName: string, type: INTERNAL_TYPES, size: number, val
         encodeCode.add(`if (offset % ${size} !== 0) offset += ${size} - (offset % ${size})`)
         encodeCode.add(`for (const entry of ${varName}) {`)
         encodeCode.indent++
-        encodeCode.add(`buffer.setInt${methodSize}(entry, offset)`)
+        encodeCode.add(`buffer.setUint${methodSize}(entry, offset)`)
         encodeCode.add(`offset += ${size}`)
         encodeCode.indent--
         encodeCode.add(`}`)
@@ -72,12 +72,12 @@ const addArrayField = ( varName: string, type: INTERNAL_TYPES, size: number, val
     switch (type) {
         case INTERNAL_TYPES.UINT:
         case INTERNAL_TYPES.INT: {
-            const bits = `${size * 8}`
-            
-            encodeCode.add(`buffer.setInt${bits}(entry, offset)`)
+            const methodType = `${type === INTERNAL_TYPES.UINT ? 'Uint' : 'Int'}${size * 8}`
+
+            encodeCode.add(`buffer.set${methodType}(entry, offset)`)
             encodeCode.add(`offset += ${size}`)
 
-            decodeCode.add(`const entry = buffer.get${type === INTERNAL_TYPES.INT ? 'Int' : 'Uint'}${bits}(offset)`)
+            decodeCode.add(`const entry = buffer.get${methodType}(offset)`)
             decodeCode.add(`offset += ${size}`)
             break
         }
@@ -96,27 +96,27 @@ const addArrayField = ( varName: string, type: INTERNAL_TYPES, size: number, val
             break
         }
         case INTERNAL_TYPES.VARBUF: {
-            const bits = `${size * 8}`
+            const methodType = `Uint${size * 8}`
 
-            encodeCode.add(`buffer.setInt${bits}(entry.length, offset)`)
+            encodeCode.add(`buffer.set${methodType}(entry.length, offset)`)
             encodeCode.add(`offset += ${size}`)
             encodeCode.add(`buffer.set(entry, offset)`)
             encodeCode.add(`offset += entry.length`)
 
-            decodeCode.add(`const itemLen = buffer.getUint${bits}(offset)`)
+            decodeCode.add(`const itemLen = buffer.get${methodType}(offset)`)
             decodeCode.add(`offset += ${size}`)
             decodeCode.add(`const entry = buffer.subarray(offset, offset += itemLen)`)
             break
         }
         case INTERNAL_TYPES.VARCHAR: {
-            const bits = `${size * 8}`
+            const methodType = `Uint${size * 8}`
 
-            encodeCode.add(`buffer.setInt${bits}(entry.length, offset)`)
+            encodeCode.add(`buffer.set${methodType}(entry.length, offset)`)
             encodeCode.add(`offset += ${size}`)
             encodeCode.add(`buffer.setString(entry, offset)`)
             encodeCode.add(`offset += entry.length`)
 
-            decodeCode.add(`const itemLen = buffer.getUint${bits}(offset)`)
+            decodeCode.add(`const itemLen = buffer.get${methodType}(offset)`)
             decodeCode.add(`offset += ${size}`)
             decodeCode.add(`const entry = buffer.getString(offset, offset += itemLen)`)
             break
@@ -149,7 +149,7 @@ const addEnumField = (cases: EnumCase[], varName: string, encodeCode: Code, deco
             encodeCode.add(`const ${idName} = ${varName}.id`)
         }
         decodeSwitchKey = idName
-        encodeCode.add(`buffer.setInt8(${encodeSwitchKey}, offset++)`)
+        encodeCode.add(`buffer.setUint8(${encodeSwitchKey}, offset++)`)
         decodeCode.add(`const ${decodeSwitchKey} = buffer.getUint8(offset++)`)
         decodeCode.add(`const ${varName} = { id: ${decodeSwitchKey}, value: ${allNested ? 'null' : 'undefined' } }`)
         // switchKey = idName
@@ -163,7 +163,7 @@ const addEnumField = (cases: EnumCase[], varName: string, encodeCode: Code, deco
         const encodeCase = encodeSwitch.case(idString ?? `${id}`)
         const decodeCase = decodeSwitch.case(`${id}`)
         if (usesMappedIds) {
-            encodeCase.add(`buffer.setInt8(${id}, offset++)`)
+            encodeCase.add(`buffer.setUint8(${id}, offset++)`)
             decodeCase.add(`${varName}.id = ${idString}`)
         }
         if (nested) {
@@ -180,15 +180,20 @@ const addEnumField = (cases: EnumCase[], varName: string, encodeCode: Code, deco
             switch (type) {
                 case INTERNAL_TYPES.INT:
                 case INTERNAL_TYPES.UINT: {
-                    const bits = `${size * 8}`
-                    encodeCase.add(`buffer.setInt${bits}(${value}, offset)`)
-                    encodeCase.add(`offset += ${size}`)
-                    decodeCase.add(`${value} = buffer.get${type === INTERNAL_TYPES.INT ? 'Int' : 'Uint'}${bits}(offset)`)
-                    decodeCase.add(`offset += ${size}`)
+                    const methodType = `${type === INTERNAL_TYPES.INT ? 'Int' : 'Uint'}${size * 8}`
+                    if (size === 1) {
+                        encodeCase.add(`buffer.set${methodType}(${value}, offset++)`)
+                        decodeCase.add(`${value} = buffer.get${methodType}(offset++)`)
+                    } else {
+                        encodeCase.add(`buffer.set${methodType}(${value}, offset)`)
+                        encodeCase.add(`offset += ${size}`)
+                        decodeCase.add(`${value} = buffer.get${methodType}(offset)`)
+                        decodeCase.add(`offset += ${size}`)
+                    }
                     break
                 }
                 case INTERNAL_TYPES.BOOL: {
-                    encodeCase.add(`buffer.setInt8(${value}, offset++)`)
+                    encodeCase.add(`buffer.setUint8(${value}, offset++)`)
                     decodeCase.add(`${value} = !!buffer.getUint8(offset++)`)
                     break
                 }
@@ -205,14 +210,14 @@ const addEnumField = (cases: EnumCase[], varName: string, encodeCode: Code, deco
                     const lengthVar = `${varName}_value_length`
                     encodeCase.add(`const ${lengthVar} = ${value}.length`)
                     if (size === 2) {
-                        encodeCase.add(`buffer.setInt16(${lengthVar}, offset)`)
+                        encodeCase.add(`buffer.setUint16(${lengthVar}, offset)`)
                         encodeCase.add(`offset += 2`)
                         encodeCase.add(`buffer.set(${value}, offset)`)
                         encodeCase.add(`offset += ${lengthVar}`)
 
                         decodeCase.add(`${value} = buffer.subarray(offset + 2, offset += 2 + buffer.getUint16(offset))`)
                     } else {
-                        encodeCase.add(`buffer.setInt8(${lengthVar}, offset++)`)
+                        encodeCase.add(`buffer.setUint8(${lengthVar}, offset++)`)
                         encodeCase.add(`buffer.set(${value}, offset)`)
                         encodeCase.add(`offset += ${lengthVar}`)
 
@@ -230,14 +235,14 @@ const addEnumField = (cases: EnumCase[], varName: string, encodeCode: Code, deco
                     const lengthVar =  `${varName}_value_length`
                     encodeCase.add(`const ${lengthVar} = ${value}.length`)
                     if (size === 2) {
-                        encodeCase.add(`buffer.setInt16(${lengthVar}, offset)`)
+                        encodeCase.add(`buffer.setUint16(${lengthVar}, offset)`)
                         encodeCase.add(`offset += 2`)
                         encodeCase.add(`buffer.setString(${value}, offset)`)
                         encodeCase.add(`offset += ${lengthVar}`)
 
                         decodeCase.add(`${value} = buffer.getString(offset + 2, offset += 2 + buffer.getUint16(offset))`)
                     } else {
-                        encodeCase.add(`buffer.setInt8(${lengthVar}, offset++)`)
+                        encodeCase.add(`buffer.setUint8(${lengthVar}, offset++)`)
                         encodeCase.add(`buffer.setString(${value}, offset)`)
                         encodeCase.add(`offset += ${lengthVar}`)
 
@@ -260,20 +265,21 @@ const addEnumField = (cases: EnumCase[], varName: string, encodeCode: Code, deco
 
 function addFieldsStatic (defInfo: DefinitionInfo, encodeCode: Code, decodeCode: Code, bufferOffset: number, validatorPrefix: string) {
     const { fields } = defInfo
-    const addIntField = (varName: string, validate: boolean, size: number, signed: boolean) => {
-        const bits = `${size * 8}`
-        encodeCode.add(`buffer.setInt${bits}(${varName}, ${bufferOffset})`)
-        decodeCode.add(`const ${varName} = buffer.get${signed ? 'Int' : 'Uint'}${bits}(${bufferOffset})`)
+    const addIntField = (methodType: string, varName: string, validate: boolean, size: number) => {
+        encodeCode.add(`buffer.set${methodType}(${varName}, ${bufferOffset})`)
+        decodeCode.add(`const ${varName} = buffer.get${methodType}(${bufferOffset})`)
         if (validate) {
             decodeCode.add(`if (!${validatorPrefix}${varName}(${varName})) return null`)
         }
         bufferOffset += size
     }
     fields.uint.forEach(({ varName, size, validate }) => {
-        addIntField(varName, validate, size, false)
+        const methodType = `Uint${size * 8}`
+        addIntField(methodType, varName, validate, size)
     })
     fields.int.forEach(({ varName, size, validate }) => {
-        addIntField(varName, validate, size, true)
+        const methodType = `Int${size * 8}`
+        addIntField(methodType, varName, validate, size)
     })
     fields.buf.forEach(({ varName, size, validate }) => {
         encodeCode.add(`buffer.set(${varName}, ${bufferOffset})`)
@@ -292,10 +298,10 @@ function addFieldsStatic (defInfo: DefinitionInfo, encodeCode: Code, decodeCode:
         bufferOffset += size
     })
     const addVarFieldLength = (varName: string, size: number) => {
-        const bits = `${size * 8}`
+        const methodType = `Uint${size * 8}`
         const lengthVar = `${varName}_length`
-        encodeCode.add(`buffer.setInt${bits}(${lengthVar}, ${bufferOffset})`)
-        decodeCode.add(`const ${lengthVar} = buffer.getUint${bits}(${bufferOffset})`)
+        encodeCode.add(`buffer.set${methodType}(${lengthVar}, ${bufferOffset})`)
+        decodeCode.add(`const ${lengthVar} = buffer.get${methodType}(${bufferOffset})`)
         bufferOffset += size
     }
     fields.varchar.forEach(({ varName, size }) => { addVarFieldLength(varName, size) })
@@ -305,7 +311,7 @@ function addFieldsStatic (defInfo: DefinitionInfo, encodeCode: Code, decodeCode:
 
     for (let i = 0; i < fields.bool.length; i += 8) {
         const packedBools = fields.bool.slice(i, i + 8 > fields.bool.length ? fields.bool.length : i + 8)
-        encodeCode.add(`buffer.setInt8(${packedBools.map(({ varName }, index) => `${varName}${index > 0 ? ` << ${index}` : ''}`).join(' | ')}, ${bufferOffset})`)
+        encodeCode.add(`buffer.setUint8(${packedBools.map(({ varName }, index) => `${varName}${index > 0 ? ` << ${index}` : ''}`).join(' | ')}, ${bufferOffset})`)
         packedBools.forEach(({ varName, validate }, index) => {
             decodeCode.add(`const ${varName} = !!(buffer.getUint8(${bufferOffset}) & ${1 << index})`)
             if (validate) {
@@ -375,21 +381,22 @@ function addFieldsStatic (defInfo: DefinitionInfo, encodeCode: Code, decodeCode:
 
 function addFieldsDynamic (defInfo: DefinitionInfo, encodeCode: Code, decodeCode: Code, inEnum: boolean, validatorPrefix: string) {
     const { fields } = defInfo
-    const addIntField = (varName: string, size: number, validate: boolean, signed: boolean) => {
-        const bits = `${size * 8}`
-        encodeCode.add(`buffer.setInt${bits}(${varName}, offset)`)
+    const addIntField = (methodType: string, varName: string, size: number, validate: boolean) => {
+        encodeCode.add(`buffer.set${methodType}(${varName}, offset)`)
         encodeCode.add(`offset += ${size}`)
-        decodeCode.add(`const ${varName} = buffer.get${signed ? 'Int' : 'Uint'}${bits}(offset)`)
+        decodeCode.add(`const ${varName} = buffer.get${methodType}(offset)`)
         decodeCode.add(`offset += ${size}`)
         if (validate) {
             decodeCode.add(`if (!${validatorPrefix}${varName}(${varName})) return null`)
         }
     }
     fields.uint.forEach(({ varName, size, validate }) => {
-        addIntField(varName, size, validate, false)
+        const methodType = `Uint${size * 8}`
+        addIntField(methodType, varName, size, validate)
     })
     fields.int.forEach(({ varName, size, validate }) => {
-        addIntField(varName, size, validate, true)
+        const methodType = `Int${size * 8}`
+        addIntField(methodType, varName, size, validate)
     })
     fields.buf.forEach(({ varName, size, validate }) => {
         encodeCode.add(`buffer.set(${varName}, offset)`)
@@ -409,7 +416,7 @@ function addFieldsDynamic (defInfo: DefinitionInfo, encodeCode: Code, decodeCode
     })
     for (let i = 0; i < fields.bool.length; i += 8) {
         const packedBools = fields.bool.slice(i, i + 8 > fields.bool.length ? fields.bool.length : i + 8)
-        encodeCode.add(`buffer.setInt8(${packedBools.map(({ varName }, index) => `${varName}${index > 0 ? ` << ${index}` : ''}`).join(' | ')}, offset++)`)
+        encodeCode.add(`buffer.setUint8(${packedBools.map(({ varName }, index) => `${varName}${index > 0 ? ` << ${index}` : ''}`).join(' | ')}, offset++)`)
         packedBools.forEach(({ varName, validate }, index) => {
             decodeCode.add(`const ${varName} = !!(buffer.getUint8(offset) & ${1 << index})`)
             if (validate) {
@@ -419,18 +426,44 @@ function addFieldsDynamic (defInfo: DefinitionInfo, encodeCode: Code, decodeCode
         decodeCode.add(`offset++`)
     }
     if (defInfo.computedSize.length === 0 && fields.enum.length === 0) return
-    const addVarFieldLength = (varName: string, size: number) => {
+    const addVarFieldLength = ({ varName, size }: Field) => {
         const lengthVar = `${varName}_length`
-        const bits = `${size * 8}`
+        const methodType = `Uint${size * 8}`
         const advanceOffset = `offset += ${size}`
         encodeCode.add(`const ${lengthVar} = ${varName}.length`)
-        encodeCode.add(`buffer.setInt${bits}(${lengthVar}, offset)`)
+        encodeCode.add(`buffer.set${methodType}(${lengthVar}, offset)`)
         encodeCode.add(advanceOffset)
-        decodeCode.add(`const ${lengthVar} = buffer.getUint${bits}(offset)`)
+        decodeCode.add(`const ${lengthVar} = buffer.get${methodType}(offset)`)
         decodeCode.add(advanceOffset)
     }
-    fields.varchar.forEach(({ varName, size }) => { addVarFieldLength(varName, size) })
-    fields.varbuf.forEach(({ varName, size }) => { addVarFieldLength(varName, size) })
+    fields.varchar.forEach(addVarFieldLength)
+    fields.varbuf.forEach(addVarFieldLength)
+
+    const addArrayLength = (varName: string, lenSize: number, i: number) => {
+        const methodType = `Uint${lenSize * 8}`
+        let arrayVar: string
+        if (inEnum) {
+            arrayVar = `array_${i}`
+            encodeCode.add(`const ${arrayVar} = ${varName}`)
+        } else {
+            arrayVar = varName
+        }
+        const lengthVar = `${arrayVar}_length`
+        encodeCode.add(`const ${lengthVar} = ${arrayVar}.length`)
+        encodeCode.add(`buffer.set${methodType}(${lengthVar}, offset)`)
+        encodeCode.add(`offset += ${lenSize}`)
+        
+        decodeCode.add(`const ${lengthVar} = buffer.get${methodType}(offset)`)
+        decodeCode.add(`offset += ${lenSize}`)
+    }
+
+    fields.array.forEach(({ varName, lenSize }, i) => {
+        addArrayLength(varName, lenSize, i)
+    })
+
+    fields.nestedArray.forEach(({ varName, lenSize }, i) => {
+        addArrayLength(varName, lenSize, i + fields.array.length)
+    })
 
     fields.varchar.forEach(({ varName, validate }) => {
         const lengthVar = `${varName}_length`
@@ -454,42 +487,18 @@ function addFieldsDynamic (defInfo: DefinitionInfo, encodeCode: Code, decodeCode
             decodeCode.add(`if (!${validatorPrefix}${varName}(${varName})) return null`)
         }
     })
-    fields.array.forEach(({ varName, lenSize, def: { type, size }, validate }, i) => {
-        const bits = `${lenSize * 8}`
-        let arrayVar: string
-        if (inEnum) {
-            arrayVar = `array_${i}`
-            encodeCode.add(`const ${arrayVar} = ${varName}`)
-        } else {
-            arrayVar = varName
-        }
+
+    fields.array.forEach(({ varName, def: { type, size }, validate }, i) => {
+        const arrayVar = inEnum ? `array_${i}` : varName
         const lengthVar = `${arrayVar}_length`
-        encodeCode.add(`const ${lengthVar} = ${arrayVar}.length`)
-        encodeCode.add(`buffer.setInt${bits}(${lengthVar}, offset)`)
-        encodeCode.add(`offset += ${lenSize}`)
-        
-        decodeCode.add(`const ${lengthVar} = buffer.getUint${bits}(offset)`)
-        decodeCode.add(`offset += ${lenSize}`)
         addArrayField(arrayVar, type, size, validate, encodeCode, decodeCode, validatorPrefix, lengthVar, i === 0)
         if (inEnum) {
             decodeCode.add(`${varName} = ${arrayVar}`)
         }
     })
-    fields.nestedArray.forEach(({ varName, def, objectStructure, lenSize }, i) => {
-        const bits = `${lenSize * 8}`
-        let arrayVar: string
-        if (inEnum) {
-            arrayVar = `array_${i + fields.array.length}`
-            encodeCode.add(`const ${arrayVar} = ${varName}`)
-        } else {
-            arrayVar = varName
-        }
+    fields.nestedArray.forEach(({ varName, def, objectStructure }, i) => {
+        const arrayVar = inEnum ? `array_${i + fields.array.length}` : varName
         const lengthVar = `${arrayVar}_length`
-        encodeCode.add(`const ${lengthVar} = ${arrayVar}.length`)
-        encodeCode.add(`buffer.setInt${bits}(${lengthVar}, offset)`)
-        encodeCode.add(`offset += ${lenSize}`)
-        decodeCode.add(`const ${lengthVar} = buffer.getUint${bits}(offset)`)
-        decodeCode.add(`offset += ${lenSize}`)
 
         encodeCode.add(`for (const ${objectStructure} of ${arrayVar}) {`)
         encodeCode.indent++

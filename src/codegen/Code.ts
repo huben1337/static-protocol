@@ -1,7 +1,7 @@
 const CODE_INDENT_SPACES = 4
 const CODE_INDENT = ' '.repeat(CODE_INDENT_SPACES)
 
-type CodeLike = Switch | Code | string
+type CodeLike = Switch | ObjectDeclaration | Code | string
 
 class Code {
     constructor (intitialValue: CodeLike = '', end: CodeLike = '') {
@@ -91,6 +91,44 @@ class If extends Code {
     }
 }
 
+class ObjectDeclaration {
+    constructor (private readonly assignment = '') {}
+
+    private readonly props = new Array<[string, CodeLike]>()
+    private readonly getters = new Array<[string, CodeLike]>()
+
+    addProperty (key: string, value: CodeLike) {
+        this.props.push([key, value])
+    }
+
+    addGetter (key: string, getterCode: CodeLike) {
+        this.getters.push([key, getterCode])
+    }
+
+    toString (blockIndent = 0): string {
+        const blockIndentString = CODE_INDENT.repeat(blockIndent)
+
+        const propIndentString = CODE_INDENT.repeat(blockIndent + 1)
+
+        const props = this.props.map(([key, value]) => {
+            const valueString = typeof value === 'string'
+            ? value
+            : value.toString(blockIndent + 1).slice((blockIndent + 1) * CODE_INDENT_SPACES)
+            return `${propIndentString}${key}: ${valueString}`
+        }).join(`,\n`)
+
+        const getters = this.getters.map(([key, getter]) => {
+            const getterString = typeof getter === 'string'
+            ? `${CODE_INDENT.repeat(blockIndent + 2)}${getter}`
+            : getter.toString(blockIndent + 2)
+
+            return `${propIndentString}get ${key} () {\n${getterString}\n${propIndentString}}`
+        }).join(`,\n`)
+
+        return `${blockIndentString}${this.assignment}{\n${props}${this.getters.length > 0 ? `,\n${getters}` : ''}\n${blockIndentString}}`
+    }
+
+}
 
 export const compile = <T>(code: Code, context = {}) => {
     // console.log(code.toString())

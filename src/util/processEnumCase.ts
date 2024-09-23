@@ -31,7 +31,7 @@ export default (typeDef: EnumFieldTypes, id: number, defInfo: DefinitionInfo, id
         }
     } else if (('isArray' in typeDef) && typeDef.isArray === true) {
         const subDefInfo = defInfo.sub()
-        processArrayDefinition((typeDef as ArrayDefintionInternal), `${valueName}.value`, subDefInfo)
+        processArrayDefinition((typeDef as ArrayDefintionInternal), subDefInfo, `${valueName}.value`)
         return {
             id,
             idString,
@@ -41,7 +41,7 @@ export default (typeDef: EnumFieldTypes, id: number, defInfo: DefinitionInfo, id
         }
     } else {
         const subDefInfo = defInfo.sub()
-        processDataDefinition(typeDef as DataDefintion, subDefInfo.args, subDefInfo)
+        processDataDefinition(typeDef as DataDefintion, subDefInfo)
         return {
             id,
             idString,

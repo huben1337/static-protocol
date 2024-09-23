@@ -14,5 +14,8 @@ type Entries<T> = {
 type InferedProtocolDefintion<T> = T extends StaticProtocolType<infer D, boolean> ? D : never
 type InferedEndpointDefintion<T> = T extends StaticEndpointType<infer D> ? D : never
 
+type DeepReadonly<T> = {
+    readonly [K in keyof T]: DeepReadonly<T[K]>
+}
 
-export { ValueType, NumberKeyToString, Entries, InferedProtocolDefintion, InferedEndpointDefintion }
+export { ValueType, NumberKeyToString, Entries, InferedProtocolDefintion, InferedEndpointDefintion, DeepReadonly }

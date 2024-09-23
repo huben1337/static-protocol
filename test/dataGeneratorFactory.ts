@@ -1,8 +1,8 @@
 import type { StaticEndpointType } from "../src/StaticEndpoint.js"
 import type { ArrayDefintionInternal, DataDefintion, Definition, EnumDefintionInternal, ExtendedFieldType, FieldTypes, InputDataTypes, IntTypes } from "../src/types/definition.js"
-import { InferedEndpointDefintion } from "../src/types/helpers.js"
+import { DeepReadonly, InferedEndpointDefintion } from "../src/types/helpers.js"
 import { extractType } from "../src/util/processType.js"
-import type { DeepReadonly } from "../src/util/types.js"
+import encoding from "../src/util/text.js"
 
 export const random = {
     between: (min: number, max: number) => Math.floor(Math.random() * (max - min) + min),
@@ -10,6 +10,7 @@ export const random = {
 }
 
 const varLegnth = (long: boolean) => long ? random.between(0, 270) : random.between(0, 30)
+
 
 export const generators: {
     [K in keyof IntTypes]: () => IntTypes[K]
@@ -29,12 +30,20 @@ export const generators: {
     int8: () => generators.uint8() - (1 << 7),
     uint16: () => (Math.random() * 0xffff) >>> 0,
     int16: () => generators.uint16() - (1 << 15),
+    uint24: () => (Math.random() * 0xffffff) >>> 0,
+    int24: () => generators.uint24() - ((1 << 23) >>> 0),
     uint32: () => (Math.random() * 0xffffffff) >>> 0,
     int32: () => generators.uint32() - ((1 << 31) >>> 0),
     uint64: () => BigInt(generators.uint32()) << 32n | BigInt(generators.uint32()),
     int64: () => generators.uint64() - (1n << 63n),
     bool: () => Math.random() > 0.5,
-    char: (length: number) => Array.from({ length }, () => String.fromCharCode(Math.floor(Math.random() * 26) + 97)).join(''),
+    char: (length: number) => {
+        const buf = new Uint8Array(length)
+        for (let i = 0; i < length; i++) {
+            buf[i] = (Math.random() * 128) >>> 0
+        }
+        return encoding.decode(buf)
+    },
     varchar: (long: boolean) => generators.char(varLegnth(long)),
     buf: (length: number) => {
         const buf = new Uint8Array(length)

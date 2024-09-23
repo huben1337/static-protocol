@@ -3,10 +3,10 @@ import { ArrayDefintionInternal, DataDefintion, EnumDefintionInternal, ExtendedF
 import processDataDefinition from "./processDataDefinition.js";
 import processEnumDefinition from "./processEnumDefinition.js";
 import processType from "./processType.js";
-import { ArgsObject, DefinitionInfo } from "./structure.js";
+import { DefinitionInfo } from "./structure.js";
 import { INTERNAL_TYPES } from "./types.js";
 
-const processArrayDefinition = (definition: ArrayDefintionInternal, varName: string, defInfo: DefinitionInfo) => {
+const processArrayDefinition = (definition: ArrayDefintionInternal, defInfo: DefinitionInfo, varName = defInfo.getVarName()) => {
     const def = definition.def
     const lenSize = definition.long ? 2 : 1
     defInfo.baseSize += lenSize
@@ -45,8 +45,7 @@ const processArrayDefinition = (definition: ArrayDefintionInternal, varName: str
         
     } else if (('isArray' in def) && def.isArray === true) {
         const subDefInfo = defInfo.sub()
-        const entryVar = subDefInfo.getVarName()
-        processArrayDefinition((def as ArrayDefintionInternal), entryVar, subDefInfo)
+        const entryVar = processArrayDefinition((def as ArrayDefintionInternal), subDefInfo)
         let sizeCalc = `(${lengthIdentifier} * ${subDefInfo.baseSize})`
         if (subDefInfo.computedSize.length > 0) {
             sizeCalc += ` + ${varName}.reduce((a, ${entryVar}) => (a + ${subDefInfo.computedSize.join(' + ')}), 0)`
@@ -60,8 +59,7 @@ const processArrayDefinition = (definition: ArrayDefintionInternal, varName: str
         })
     } else if (('isEnum' in def) && def.isEnum === true) {
         const subDefInfo = defInfo.sub()
-        const entryVar = subDefInfo.getVarName()
-        processEnumDefinition((def as EnumDefintionInternal), entryVar, subDefInfo)
+        const entryVar = processEnumDefinition((def as EnumDefintionInternal), subDefInfo)
         let sizeCalc = `(${lengthIdentifier} * ${subDefInfo.baseSize})`
         if (subDefInfo.computedSize.length > 0) {
             sizeCalc += ` + ${varName}.reduce((a, ${entryVar}) => (a + ${subDefInfo.computedSize.join(' + ')}), 0)`
@@ -74,11 +72,10 @@ const processArrayDefinition = (definition: ArrayDefintionInternal, varName: str
             lenSize
         })
     } else {
-        const child = new ArgsObject()
         const arrDefInfo = defInfo.sub()
-        processDataDefinition(def as DataDefintion, child, arrDefInfo)
+        processDataDefinition(def as DataDefintion, arrDefInfo)
         let sizeCalc = `(${lengthIdentifier} * ${arrDefInfo.getBaseSize()})`
-        const objectStructure = child.toString()
+        const objectStructure = arrDefInfo.args.toString()
         if (arrDefInfo.computedSize.length > 0) {
             // objectStructure is alwys a string since when computedSize isnt empty there exists at least one field
             sizeCalc += ` + ${varName}.reduce((a, ${objectStructure}) => (a + ${arrDefInfo.computedSize.join(' + ')}), 0)`
@@ -91,6 +88,8 @@ const processArrayDefinition = (definition: ArrayDefintionInternal, varName: str
             lenSize
         })
     }
+
+    return varName
 }
 
 export default processArrayDefinition

@@ -66,22 +66,22 @@
                 </div>
                 <div class="graph">                
                     <div class="entry">
-                        <div class="bar" style="height: calc(var(--bar-height) * 0.245  - var(--bar-top-padding)); background-color: #731ae8;">300 285</div>
+                        <div class="bar" style="height: calc(var(--bar-height) * 0.152  - var(--bar-top-padding)); background-color: #6c1ae8;">227 757</div>
                         <div class="label">json-encode</div>
                     </div>
                     <div class="entry">
-                        <div class="bar" style="height: calc(var(--bar-height) * 0.782  - var(--bar-top-padding)); background-color: #9a1ae8;">958 254</div>
+                        <div class="bar" style="height: calc(var(--bar-height) * 0.940  - var(--bar-top-padding)); background-color: #a51ae8;">1 411 303</div>
                         <div class="label">static-protocol-encode</div>
                     </div>
                     <div class="entry">
-                        <div class="bar" style="height: calc(var(--bar-height) * 0.221  - var(--bar-top-padding)); background-color: #711ae8;">270 917</div>
+                        <div class="bar" style="height: calc(var(--bar-height) * 0.091  - var(--bar-top-padding)); background-color: #681ae8;">136 134</div>
                         <div class="label">json-decode</div>
                     </div>
                     <div class="entry">
-                        <div class="bar" style="height: calc(var(--bar-height) * 1.000  - var(--bar-top-padding)); background-color: #aa1ae8;">1 224 707</div>
+                        <div class="bar" style="height: calc(var(--bar-height) * 1.000  - var(--bar-top-padding)); background-color: #aa1ae8;">1 502 011</div>
                         <div class="label">static-protocol-decode</div>
                     </div>
-      </div>
+    </div>
             </div>
         </div>
     </foreignObject>

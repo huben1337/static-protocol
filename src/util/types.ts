@@ -9,7 +9,3 @@ export const enum INTERNAL_TYPES {
     INT,
     VARUINT
 }
-
-export type DeepReadonly<T> = {
-    readonly [K in keyof T]: DeepReadonly<T[K]>
-}

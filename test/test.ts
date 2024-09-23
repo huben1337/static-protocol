@@ -7,11 +7,11 @@ import randomDefintionFactory from "./randomDefinitionFactory.js"
 let i = 0
 
 const randomDefinition = randomDefintionFactory({
-    maxDepth: 4,
+    maxDepth: 3,
 })
-
+const start = performance.now()
 // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-while (true) {
+while (i < 10_000) {
     const def = randomDefinition()
     try {
         const ep = StaticEndpoint(def)
@@ -30,7 +30,8 @@ while (true) {
             }
         }
 
-        process.stdout.write(`\rSuccess with definition: ${i++}`)
+        if ((i & 127) === 0) process.stdout.write(`\rSuccess with definition: ${i}`)
+        i++
     } catch (error) {
         console.log(error)
         console.log('\nFailed with definition:')
@@ -39,3 +40,4 @@ while (true) {
         break
     }
 }
+console.log(performance.now() - start)

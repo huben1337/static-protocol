@@ -42,10 +42,10 @@ function encode (value: number) {
     const length = findLength(value) - 1
     const buf = Buffer.alloc(length + 1)
     for (let i = 0; i < length; i++) {
-        buf.setUint8(value & 0x7f | 0x80, i)
+        buf.setInt8(value & 0x7f | 0x80, i)
         value >>>= 7
     }
-    buf.setUint8(value & 0x7f, length)
+    buf.setInt8(value & 0x7f, length)
     return buf
 }
 

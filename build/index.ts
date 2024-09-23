@@ -165,7 +165,7 @@ const buildProtocol = <T extends ProtocolDefintion, R extends boolean = false> (
 
         const defInfo = new DefinitionInfo(endpoint.validate !== false)
         if (endpoint.data) {
-            processDataDefinition(endpoint.data, defInfo.args, defInfo)
+            processDataDefinition(endpoint.data, defInfo)
         }
 
         for (const [fieldName, { test, type }] of Object.entries(defInfo.validators)) {

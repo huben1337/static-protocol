@@ -4,7 +4,7 @@ import { ArrayFieldTypes,  DataDefintion, Definition, DefinedTypeInput, DefinedT
 import processDefinition from './util/processDefinition.js'
 import addEncodeDecode from './codegen/addEncodeDecode.js'
 import Code, { compile } from './codegen/Code.js'
-import { DeepReadonly } from './util/types.js'
+import { DeepReadonly } from './types/helpers.js'
 
 
 /**

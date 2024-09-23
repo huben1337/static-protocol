@@ -5,9 +5,9 @@ import { DataDefintion, Definition, EnumDefintion, InputDataTypes, IntTypes } fr
 
 type VarSizedInputFieldTypes = [`char:${number}`, `buf:${number}`, `varbuf:${number}`, `varchar:${number}`]
 
-type FixedSizeInputFieldTypes = ['uint8', 'int8', 'uint16', 'int16', 'uint32', 'int32', 'uint64', 'int64', 'bool']
 
-const allFixedSizeFieldTypes: FixedSizeInputFieldTypes = ['uint8', 'int8', 'uint16', 'int16', 'uint32', 'int32', 'uint64', 'int64', 'bool']
+
+const allFixedSizeFieldTypes = ['uint8', 'int8', 'uint16', 'int16', 'uint24', 'int24', 'uint32', 'int32', 'uint64', 'int64', 'bool'] as const
 
 type MappedToFunctionTuple<I extends unknown[], O extends unknown[] = []> = I extends [infer F, ...infer R] ? MappedToFunctionTuple<R, [() => F, ...O]> : O
 
@@ -181,7 +181,7 @@ const _randomFieldType = (): keyof InputDataTypes => {
 const _randomEnumDataDefinition = (maxDepth: number): DataDefintion => {
     // Doesnt nest enums
     const fields: DataDefintion = {}
-    const numFields = random.between(maxDepth, maxDepth + 4)
+    const numFields = random.between(1, 8)
     for (let i = 0; i < numFields; i++) {
         const rand = Math.random()
         if (maxDepth < 1 || rand < 0.5) {
@@ -197,11 +197,11 @@ const _randomEnumDataDefinition = (maxDepth: number): DataDefintion => {
 }
 
 const _randomEnum = (maxDepth: number): EnumDefintion => {
-    const numEnums = random.between(4, 10)
+    const numEnums = random.between(3, 7)
     const enumDef: EnumDefintion = {}
     for (let i = 0; i < numEnums; i++) {
         const rand = Math.random()
-        const id = Math.random() > 0.5 ? `e${i}` : i
+        const id = Math.random() > 0.95 ? `e${i}` : i
         if (maxDepth < 1 || rand < 0.5) {
             enumDef[id] = _randomFieldType()
         } else if (rand < 0.8) {
@@ -216,7 +216,7 @@ const _randomEnum = (maxDepth: number): EnumDefintion => {
 
 const _randomDataDefinition = (maxDepth: number): DataDefintion => {
     const fields: DataDefintion = {}
-    const numFields = random.between(maxDepth, maxDepth + 4)
+    const numFields = random.between(1, 8)
     for (let i = 0; i < numFields; i++) {
         const rand = Math.random()
         if (maxDepth < 1 || rand < 0.5) {

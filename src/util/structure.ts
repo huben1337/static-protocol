@@ -41,6 +41,12 @@ class ArgsObject {
         this.args.push(prop)
         this.varArgs.push(prop)
     }
+
+    sub (name: string) {
+        const child = new ArgsObject()
+        this.addVar(name, child)
+        return child
+    }
 }
 
 export type Field = { varName: string, size: number, validate: boolean }
