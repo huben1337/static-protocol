@@ -9,7 +9,7 @@ const iterationTracker = new Uint32Array(workerData as SharedArrayBuffer)
 
 
 const randomDefinition = randomDefinitionFactory({
-    maxDepth: 4
+    maxDepth: 2
 })
 
 // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
@@ -27,16 +27,7 @@ while (true) {
             check(de, data)
         }
 
-        const i = iterationTracker[0]++
-        if (i >= 0x7fffffff) {
-            process.exit(0)
-        }
-        await new Promise<void>((resolve, reject) => {
-            process.stdout.write(`\x1b[21G${i} definitions`, (err) => {
-                if (err) reject(err)
-                else resolve()
-            })
-        })
+        iterationTracker[0]++
     } catch (error) {
         // console.log(error)
         console.log('\n\n\n\nFailed!')
