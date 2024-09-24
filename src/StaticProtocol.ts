@@ -32,7 +32,7 @@ const StaticProtocol = <T extends ProtocolDefintion, R extends boolean | undefin
     type PropertyDescriptorEntry = [name: keyof T, descriptor: { value: StaticEndpointType<ValueType<T>>, enumerable: true }]
     let mapped
     if (raw) {
-        // @ts-expect-error [1] We can always index into the validators object as we expect undefined on non validated endpoints
+        // @ts-expect-error [1] The tuple rest args are hard to get working
         // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
         mapped = entries.map<PropertyDescriptorEntry>(([name, def]) => [name, { value: StaticEndpoint(def, validators ? validators[name] : undefined), enumerable: true }]) 
     } else {

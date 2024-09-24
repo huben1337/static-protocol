@@ -1,6 +1,4 @@
-import { ExtendedFieldType } from "../types/definition.js"
 import processType from "./processType.js"
-import { INTERNAL_TYPES } from "./types.js"
 
 export type ObjectStrcture = { name: string, value: string | ArgsObject }[]
 

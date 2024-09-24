@@ -3,7 +3,7 @@ import { findLength } from './util/varuint.js'
 import { ArrayFieldTypes,  DataDefintion, Definition, DefinedTypeInput, DefinedTypeOutput, EnumDefintion, HasExtended, HasData, Validators, HasValidators, InputDataTypes } from './types/definition.js'
 import processDefinition from './util/processDefinition.js'
 import addTSEncodeDecode from './codegen/ts/addEncodeDecode.js'
-import addCPPEncodeDecode from './codegen/cpp/addEncodeDecode.js'
+// import addCPPEncodeDecode from './codegen/cpp/addEncodeDecode.js'
 import Code, { compile } from './codegen/Code.js'
 import { DeepReadonly } from './types/helpers.js'
 

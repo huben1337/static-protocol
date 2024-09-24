@@ -11,7 +11,7 @@ type EncodingBinding = {
 type InternalBindings = {
     encoding_binding: EncodingBinding
 }
-type Primordials = {}
+type Primordials = Record<never, never>
 type Internals = {
     internalBinding: <T extends keyof InternalBindings> (tag: T) => InternalBindings[T],
     primordials: Primordials

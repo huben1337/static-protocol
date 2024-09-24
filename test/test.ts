@@ -10,7 +10,6 @@ const randomDefinition = randomDefintionFactory({
     maxDepth: 3,
 })
 const start = performance.now()
-// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
 while (i < 10_000) {
     const def = randomDefinition()
     try {
