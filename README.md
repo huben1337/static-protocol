@@ -32,11 +32,6 @@ const endpointSchema = {
     data: {
         name: {
             type: 'varchar',
-            /**
-             * Test function - If it fails the decode will return null
-             */
-            test: (value: string) => /[a-zA-Z]/.test(value)
-        },
         age: Enum({ 
             /* [case: number | string]: type */
             0: 'uint8',
