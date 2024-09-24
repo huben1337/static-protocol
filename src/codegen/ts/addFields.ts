@@ -48,7 +48,7 @@ const addArrayField = ( varName: string, type: INTERNAL_TYPES, size: number, val
         return
     }
 
-    if (config.INT_ARRAYS && (type === INTERNAL_TYPES.INT || type === INTERNAL_TYPES.UINT)) {
+    if (config.INT_ARRAYS && (type === INTERNAL_TYPES.INT || type === INTERNAL_TYPES.UINT) && (size === 1 || size === 2 || size === 4 || size === 8)) {
         const methodSize = `${size * 8}`
         encodeCode.add(`if (offset % ${size} !== 0) offset += ${size} - (offset % ${size})`)
         encodeCode.add(`for (const entry of ${varName}) {`)

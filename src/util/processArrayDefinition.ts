@@ -22,7 +22,7 @@ const processArrayDefinition = (definition: ArrayDefintionInternal, defInfo: Def
             ? ` + ${varName}.reduce((a, b) => a + b.length, 0)`
             : ''
         }`
-        if (config.INT_ARRAYS && (type === INTERNAL_TYPES.INT || type === INTERNAL_TYPES.UINT)) {
+        if (config.INT_ARRAYS && (type === INTERNAL_TYPES.INT || type === INTERNAL_TYPES.UINT) && (size === 1 || size === 2 || size === 4 || size === 8)) {
             // for padding
             defInfo.baseSize += size - 1
         }
