@@ -328,10 +328,14 @@ class ReadonlyBuffer<T extends ReadonlyUint8Array | Uint8Array> {
 
     readonly #view: T
 
+    get view () {
+        return this.#view
+    }
+
 }
 
 type FullyReadonlyBuffer = ReadonlyBuffer<ReadonlyUint8Array>
 
-type BufferLike = Uint8Array | ReadonlyUint8Array | Buffer | ReadonlyBuffer<ReadonlyUint8Array | Uint8Array>
+type BufferLike = Buffer | ReadonlyBuffer<ReadonlyUint8Array | Uint8Array>
 
 export { Buffer, ReadonlyBuffer, ReadonlyUint8Array, FullyReadonlyBuffer, BufferLike }

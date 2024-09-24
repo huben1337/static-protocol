@@ -1,3 +1,4 @@
+import { ReadonlyBuffer } from "../src/util/Buffer.js"
 import emiter from "./emiter.js"
 import endpoint from "./endpoint.js"
 import handler from "./handler.js"
@@ -34,6 +35,8 @@ console.log('\nDecoded data from protocol:', decoded)
 
 /* Emiter and handler usage */
 
-echo.onData = handler
+echo.onData = (data) => {
+    handler(ReadonlyBuffer.wrap(data))
+}
 
 emiter.note({ text: 'Hello world!' })
