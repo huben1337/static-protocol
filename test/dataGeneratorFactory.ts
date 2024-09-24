@@ -129,7 +129,7 @@ const getEnumGenerator = (defintion: EnumDefintionInternal) => {
 const processFieldType = (def: FieldTypes | 'none') => {
     if (typeof def === 'string') {
         return getFieldGenerator(def)
-    } else if ('test' in def && typeof def.test === 'function') {
+    } else if ('validate' in def && def.validate === true) {
         return getFieldGenerator((def as ExtendedFieldType).type)
     } else if ('isArray' in def) {
         return getArrayGenerator(def as ArrayDefintionInternal)

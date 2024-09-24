@@ -13,14 +13,11 @@ export default (typeDef: EnumFieldTypes, id: number, defInfo: DefinitionInfo, id
             def: processType(typeDef),
             validate: false
         }
-    } else if (('test' in typeDef) && typeof typeDef.test === 'function') {
+    } else if (('validate' in typeDef) && typeDef.validate === true) {
         const typeInfo = processType((typeDef as ExtendedFieldType).type)
         const validate = defInfo.validate
         if (validate) {
-            defInfo.validators[valueName] = {
-                test: typeDef.test,
-                type: typeInfo.type
-            }
+            defInfo.fieldsToValidate.push(valueName)
         }
         return {
             id,

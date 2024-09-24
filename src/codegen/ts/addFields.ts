@@ -1,7 +1,7 @@
-import Code from './Code.js'
-import { DefinitionInfo, EnumCase } from '../util/structure.js'
-import { INTERNAL_TYPES } from '../util/types.js'
-import config from '../config.js'
+import Code from '../Code.js'
+import { DefinitionInfo, EnumCase } from '../../util/structure.js'
+import { INTERNAL_TYPES } from '../../util/types.js'
+import config from '../../config.js'
 
 const addArrayField = ( varName: string, type: INTERNAL_TYPES, size: number, validate: boolean, encodeCode: Code, decodeCode: Code, validatorPrefix: string, lengthVar: string, first: boolean) => {
     if (type === INTERNAL_TYPES.BOOL) {

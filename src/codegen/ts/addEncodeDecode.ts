@@ -1,7 +1,7 @@
-import { Definition } from "../types/definition.js"
-import Code from "./Code.js"
-import { DefinitionInfo, Fields } from "../util/structure.js"
-import { INTERNAL_TYPES } from "../util/types.js"
+import { Definition } from "../../types/definition.js"
+import Code from "../Code.js"
+import { DefinitionInfo, Fields } from "../../util/structure.js"
+import { INTERNAL_TYPES } from "../../util/types.js"
 import { addFieldsStatic } from "./addFields.js"
 const addEnumSizeCalc = (enumFields: Fields['enum'], encodeCode: Code) => {
     enumFields.forEach(({ varName, cases }) => {
@@ -115,7 +115,7 @@ const addEncodeDecode = <T extends Definition> (defInfo: DefinitionInfo, channel
         addEnumSizeCalcDeep(defInfo.fields, encodeCode)
         encodeCode.insert(`const buffer = Buffer.alloc(1, 0xffffffff)`, 1)
         if (channel !== undefined) {
-            encodeCode.insert(`buffer.setUint8(${channel}, ${bufferOffset++})`, 2)
+            encodeCode.insert(`buffer.setInt8(${channel}, ${bufferOffset++})`, 2)
         }
         encodeCode.add('buffer.resize(bufferLength)')
 
@@ -123,13 +123,13 @@ const addEncodeDecode = <T extends Definition> (defInfo: DefinitionInfo, channel
         addLengthIdentifiers(defInfo.fields, encodeCode)
         encodeCode.insert(`const buffer = Buffer.alloc(1, 0xffffffff)`, 1)
         if (channel !== undefined) {
-            encodeCode.insert(`buffer.setUint8(${channel}, ${bufferOffset++})`, 2)
+            encodeCode.insert(`buffer.setInt8(${channel}, ${bufferOffset++})`, 2)
         }
         encodeCode.add(`buffer.resize(${sizeCalc})`)
     } else {
         encodeCode.insert(`const buffer = Buffer.alloc(${sizeCalc})`, 1)
         if (channel !== undefined) {
-            encodeCode.insert(`buffer.setUint8(${channel}, ${bufferOffset++})`, 2)
+            encodeCode.insert(`buffer.setInt8(${channel}, ${bufferOffset++})`, 2)
         }
     }
     

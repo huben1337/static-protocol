@@ -7,9 +7,9 @@ import { DefinitionInfo } from "./structure.js"
 const processDataDefinition = (dataDef: DataDefintion, defInfo: DefinitionInfo, parent = defInfo.args) => {
     for (const [name, sub] of Object.entries(dataDef)) {
         if (typeof sub === 'string') {
-            processField(sub, name, parent, defInfo, null)
-        } else if (('test' in sub) && typeof sub.test === 'function') {
-            processField((sub as ExtendedFieldType).type, name, parent, defInfo, sub.test)
+            processField(sub, name, parent, defInfo)
+        } else if (('validate' in sub) && sub.validate === true) {
+            processField((sub as ExtendedFieldType).type, name, parent, defInfo, true)
         } else if (('isArray' in sub) && sub.isArray === true) {
             const varName = processArrayDefinition((sub as ArrayDefintionInternal), defInfo)
             parent.addVar(name, varName)

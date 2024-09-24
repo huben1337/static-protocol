@@ -1,9 +1,9 @@
-import { ExtendedFieldType, InputDataTypes } from "../types/definition.js"
+import { InputDataTypes } from "../types/definition.js"
 import processType from "./processType.js"
 import { ArgsObject, DefinitionInfo } from "./structure.js"
 import { INTERNAL_TYPES } from "./types.js"
 
-const processField = (sub: keyof InputDataTypes, name: string, parent: ArgsObject, defInfo: DefinitionInfo, test: ExtendedFieldType['test'] | null) => {
+const processField = (sub: keyof InputDataTypes, name: string, parent: ArgsObject, defInfo: DefinitionInfo, validate = false) => {
     const varName = defInfo.getVarName()
     const { type, size } = processType(sub)
     if (type === INTERNAL_TYPES.VARBUF || type === INTERNAL_TYPES.VARCHAR || type === INTERNAL_TYPES.VARUINT) {
@@ -11,12 +11,9 @@ const processField = (sub: keyof InputDataTypes, name: string, parent: ArgsObjec
     } else {
         parent.add(name, varName)
     }
-    const validate = defInfo.validate && test !== null
+    validate &&= defInfo.validate
     if (validate) {
-        defInfo.validators[varName] = {
-            test: test,
-            type: type
-        }
+        defInfo.fieldsToValidate.push(varName)
     }
     const field = {
         varName,

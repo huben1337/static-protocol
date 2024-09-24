@@ -1,16 +1,23 @@
-import { StaticEndpoint, StaticEndpointType } from "./StaticEndpoint.js"
+import { EndpointValidators, StaticEndpoint, StaticEndpointType } from "./StaticEndpoint.js"
 import { Definition } from "./types/definition.js"
-import { Entries } from "./types/helpers.js"
+import { Entries, ValueType } from "./types/helpers.js"
 
 type ProtocolDefintion = {
     [endpoint: string]: Definition
 }
 
-type StaticProtocolType <T extends ProtocolDefintion, R> = R extends true ? {
+type StaticProtocolType <T extends ProtocolDefintion, R> = true extends R ? {
     [name in keyof T]: StaticEndpointType<T[name]>
 } : {
     [name in keyof T]: StaticEndpointType<T[name] & { channel: number }>
 }
+
+type ProtocolValidators<T extends ProtocolDefintion> =  {
+    // eslint-disable-next-line @typescript-eslint/no-invalid-void-type
+    [K in keyof T as EndpointValidators<T[K]> extends never ? never : K]: EndpointValidators<T[K]>
+}
+
+type ValidatorsArgs<T extends ProtocolDefintion> = keyof ProtocolValidators<T> extends never ? [] : [validators: ProtocolValidators<T>] 
 
 /**
  * Creates a static protocol based on the provided definition.
@@ -19,12 +26,15 @@ type StaticProtocolType <T extends ProtocolDefintion, R> = R extends true ? {
  * @param raw - Raw protocols dont have add a channel id for each endpoint.
  * @returns The static protocol Object.
  */
-const StaticProtocol = <T extends ProtocolDefintion, R extends boolean = false> (definition: T, raw?: R): StaticProtocolType<T, R> => {
+const StaticProtocol = <T extends ProtocolDefintion, R extends boolean | undefined = false> (definition: T, raw?: R, ...args: ValidatorsArgs<T>) => {
     const entries = Object.entries(definition) as Entries<T>
-    type PropertyDescriptorEntry = [name: keyof T, descriptor: { value: StaticEndpointType<T[keyof T]>, enumerable: true }]
+    const [validators] = args
+    type PropertyDescriptorEntry = [name: keyof T, descriptor: { value: StaticEndpointType<ValueType<T>>, enumerable: true }]
     let mapped
     if (raw) {
-        mapped = entries.map<PropertyDescriptorEntry>(([name, def]) => [name, { value: StaticEndpoint(def), enumerable: true }]) 
+        // @ts-expect-error [1] We can always index into the validators object as we expect undefined on non validated endpoints
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+        mapped = entries.map<PropertyDescriptorEntry>(([name, def]) => [name, { value: StaticEndpoint(def, validators ? validators[name] : undefined), enumerable: true }]) 
     } else {
         const usedChannels = new Set<number>()
         let channelId = 0  
@@ -38,7 +48,9 @@ const StaticProtocol = <T extends ProtocolDefintion, R extends boolean = false> 
                 usedChannels.add(channelId)
                 def.channel = channelId
             }
-            return [name, { value: StaticEndpoint(def), enumerable: true }]
+            // @ts-expect-error Same reason as [1]
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+            return [name, { value: StaticEndpoint(def, validators ? validators[name] : undefined), enumerable: true }]
         })
         
     }

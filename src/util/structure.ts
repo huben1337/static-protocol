@@ -92,7 +92,7 @@ class DefinitionInfo {
     }
     
     readonly topLevel: boolean
-    validators: Record<string, { test: ExtendedFieldType['test'], type: INTERNAL_TYPES }> = {}
+    fieldsToValidate = new Array<string>()
     validate: boolean
     fields = new Fields()
     args = new ArgsObject()
@@ -132,7 +132,7 @@ class DefinitionInfo {
     sub () {
         const sub = new DefinitionInfo(this.validate)
         sub.state = this.state
-        sub.validators = this.validators
+        sub.fieldsToValidate = this.fieldsToValidate
         return sub
     }
 }

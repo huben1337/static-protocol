@@ -5,10 +5,7 @@ const proto = StaticProtocol({
         data: {
             name: {
                 type: 'varchar',
-                /**
-                 * Test function - If it fails the decode will return null
-                 */
-                test: (value: string) => /[a-zA-Z]/.test(value)
+                validate: true
             },
             age: Enum({ 
                 /* [case: number | string]: type */
@@ -24,6 +21,10 @@ const proto = StaticProtocol({
         data: {
             text: 'varchar:5000'
         }
+    }
+}, undefined, {
+    user: {
+        name: (v) => /[a-zA-Z]/.test(v)
     }
 })
 

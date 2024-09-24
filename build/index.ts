@@ -1,5 +1,5 @@
 import { ProtocolDefintion } from "../src/StaticProtocol.js"
-import addEncodeDecode from "../src/codegen/addEncodeDecode.js"
+import addEncodeDecode from "../src/codegen/ts/addEncodeDecode.js"
 import { DataDefintion, Definition, EnumDefintion, ExtendedFieldType, InputDataTypes } from "../src/types/definition.js"
 import Code from "../src/codegen/Code.js"
 import processDefinition from "../src/util/processDefinition.js"
@@ -48,7 +48,7 @@ const getTypeDefinition = <T extends DataDefintion> (dataDef: T, readonly: boole
     for (const [name, fieldDef] of Object.entries(dataDef)) {
         if (typeof fieldDef === 'string') {
             props.push(`${name}: ${getType(fieldDef, readonly)}`)
-        } else if ('test' in fieldDef && typeof fieldDef.test === 'function') {
+        } else if ('validate' in fieldDef && typeof fieldDef.validate === 'boolean') {
             props.push(`${name}: ${getType((fieldDef as ExtendedFieldType).type, readonly)}`)
         } else if ('isEnum' in fieldDef && fieldDef.isEnum === true) {
             const enumCases = new Array<string>()
@@ -113,7 +113,7 @@ const buildEndpoint = <T extends Definition> (definition: T, name: string, trans
 
     const endpointCode = new Code(`import { Buffer, ReadonlyBuffer } from 'static-protocol'`)
 
-    for (const [fieldName, { test, type }] of Object.entries(defInfo.validators)) {
+    /* for (const [fieldName, { test, type }] of Object.entries(defInfo.validators)) {
         const testCode = test.toString()
         const scopedTest = Function(`return (${testCode})`)() as (value: Parameters<typeof test>[0]) => boolean
         try {
@@ -122,7 +122,7 @@ const buildEndpoint = <T extends Definition> (definition: T, name: string, trans
             throw new Error(`When building endpoints, a validators can not access values outside its scope. Validator ${fieldName} failed with ${error}.`)
         }
         endpointCode.add(`const vd${fieldName} = (${testCode})`)
-    }
+    } */
     
     // Generate declarations - We want to replace this by using the TypeScript API at some point
     const encodeBufferType = `${definition.allocateNew === true ? 'Buffer' : 'FullyReadonlyBuffer'}`
@@ -168,7 +168,7 @@ const buildProtocol = <T extends ProtocolDefintion, R extends boolean = false> (
             processDataDefinition(endpoint.data, defInfo)
         }
 
-        for (const [fieldName, { test, type }] of Object.entries(defInfo.validators)) {
+        /* for (const [fieldName, { test, type }] of Object.entries(defInfo.validators)) {
             const testCode = test.toString()
             const scopedTest = Function(`return (${testCode})`)() as (value: Parameters<typeof test>[0]) => boolean
             try {
@@ -177,7 +177,7 @@ const buildProtocol = <T extends ProtocolDefintion, R extends boolean = false> (
                 throw new Error(`When building endpoints, a validators can not access values outside its scope. Validator ${fieldName} failed with ${error}.`)
             }
             protoCode.add(`const vd_${name}${fieldName} = (${testCode})`)
-        }
+        } */
         return {
             name,
             endpoint,

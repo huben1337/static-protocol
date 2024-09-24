@@ -12,7 +12,7 @@ const processArrayDefinition = (definition: ArrayDefintionInternal, defInfo: Def
     defInfo.baseSize += lenSize
     const lengthIdentifier = `${varName}${defInfo.topLevel ? '_' : '.'}length`
     const isSimpleField = typeof def === 'string'
-    if (isSimpleField || (('test' in def) && typeof def.test === 'function')) {
+    if (isSimpleField || (('validate' in def) && def.validate === true)) {
         const typeInfo = processType(isSimpleField ? def : (def as ExtendedFieldType).type)
         const { type, size } = typeInfo
         const sizeCalc = type === INTERNAL_TYPES.BOOL
@@ -30,10 +30,7 @@ const processArrayDefinition = (definition: ArrayDefintionInternal, defInfo: Def
 
         const validate = defInfo.validate && !isSimpleField
         if (validate) {
-            defInfo.validators[varName] = {
-                test: (def as ExtendedFieldType).test,
-                type
-            }
+            defInfo.fieldsToValidate.push(varName)
         }
 
         defInfo.fields.array.push({

@@ -1,8 +1,9 @@
 import { Buffer, BufferLike, FullyReadonlyBuffer, ReadonlyBuffer } from './util/Buffer.js'
 import { findLength } from './util/varuint.js'
-import { ArrayFieldTypes,  DataDefintion, Definition, DefinedTypeInput, DefinedTypeOutput, EnumDefintion, HasExtended, HasData } from './types/definition.js'
+import { ArrayFieldTypes,  DataDefintion, Definition, DefinedTypeInput, DefinedTypeOutput, EnumDefintion, HasExtended, HasData, Validators, HasValidators, InputDataTypes } from './types/definition.js'
 import processDefinition from './util/processDefinition.js'
-import addEncodeDecode from './codegen/addEncodeDecode.js'
+import addTSEncodeDecode from './codegen/ts/addEncodeDecode.js'
+import addCPPEncodeDecode from './codegen/cpp/addEncodeDecode.js'
 import Code, { compile } from './codegen/Code.js'
 import { DeepReadonly } from './types/helpers.js'
 
@@ -32,8 +33,15 @@ const List = <T extends ArrayFieldTypes>(def: T, maxSize = 255) => {
     }
 }
 
+const Validate = <T extends keyof InputDataTypes> (type: T) => {
+    return {
+        type,
+        validate: true as const
+    }
+}
 
-type StaticEndpointType<T extends Definition> = {
+
+export type StaticEndpointType<T extends Definition> = {
     /**
      * The channel id of the endpoint
      */
@@ -71,12 +79,15 @@ type StaticEndpointType<T extends Definition> = {
     readonly definition: DeepReadonly<T>
 }
 
+export type EndpointValidators<T extends Definition> = T['data'] extends DataDefintion ? (HasValidators<T['data']> extends true ? Validators<T['data']> : never) : never
+type ValidatorsArgs<T extends Definition> = EndpointValidators<T> extends never ? [] : [validators: EndpointValidators<T>]
+
 /**
  * Creates a new static endpoint
  * 
  * @param definition - The definition for the endpoint
  */
-const StaticEndpoint = <T extends Definition> (definition: T) => {
+const StaticEndpoint = <T extends Definition> (definition: T, ...args: ValidatorsArgs<T>) => {
     const defInfo = processDefinition(definition)
 
     const encodeCode = new Code('const Buffer = this.Buffer')
@@ -85,11 +96,29 @@ const StaticEndpoint = <T extends Definition> (definition: T) => {
     }
 
     const decodeCode = new Code('const ReadonlyBuffer = this.ReadonlyBuffer')
-    for (const name in defInfo.validators) {
-        decodeCode.add(`const vd${name} = this.vd.${name}.test`)
+    
+    const [validators] = args
+    if (validators) {
+        let i = 0
+        console.log(defInfo.fieldsToValidate)
+        const addValidators = (validators: object, path: string) => {
+            const entries = Object.entries(validators)
+            for (const [key, value] of entries) {
+                const subPath = `${path}['${key}']`
+                if (!(typeof value === 'function')) {
+                    addValidators(value as object, subPath)
+                } else {
+                    decodeCode.add(`const vd${defInfo.fieldsToValidate[i++]} = ${subPath}`)
+                }
+                
+            }
+        }
+        addValidators(validators, 'this.vd')
     }
+    
+    addTSEncodeDecode(defInfo, definition.channel, definition.allocateNew, encodeCode, decodeCode, 'return', 'vd')
 
-    addEncodeDecode(defInfo, definition.channel, definition.allocateNew, encodeCode, decodeCode, 'return', 'vd')
+    // addCPPEncodeDecode(defInfo, definition.channel, definition.allocateNew, encodeCode, decodeCode, 'return', 'vd')
 
     return Object.seal(Object.create(null, {
         channel: {
@@ -106,7 +135,7 @@ const StaticEndpoint = <T extends Definition> (definition: T) => {
         decode: {
             value: compile<StaticEndpointType<T>['decode']>(decodeCode, defInfo.validate ? {
                 ReadonlyBuffer,
-                vd: defInfo.validators
+                vd: validators
             } : {
                 ReadonlyBuffer
             })
@@ -130,4 +159,4 @@ type DecodeFunction<T extends Definition> = (buffer: BufferLike) => ProtoObject<
 type DecodeFunctionNoRet = (buffer: BufferLike) => void
 */
 
-export { StaticEndpoint, StaticEndpointType, Enum, List }
+export { StaticEndpoint, Enum, List, Validate }
