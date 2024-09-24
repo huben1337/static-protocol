@@ -41,12 +41,10 @@ type Definition = {
     allocateNew?: boolean
 }
 
-type ExtendedFieldType = ValueType<{
-    [T in keyof InputDataTypes]: {
-        type: T
-        test: (value: InputDataTypes[T]) => boolean
-    }
-}>
+type ExtendedFieldType = {
+    type: keyof InputDataTypes
+    validate: true
+}
 
 type BaseFieldTypes = keyof InputDataTypes | DataDefintion | ExtendedFieldType | ArrayDefintionInternal
 
@@ -86,7 +84,7 @@ type HasData<T extends FieldTypes> = keyof T extends never ? false : ValueType<{
             HasData<T[K]> extends false ? never : K
         ) : never
     )]: true
-}>
+}> extends never ? false : true
 
 
 type DefinedTypeInput<T extends FieldTypes> = T extends keyof InputDataTypes ? InputDataTypes[T] : (
@@ -112,6 +110,41 @@ type DefinedTypeOutput<T extends FieldTypes> = T extends keyof OutputDataTypes ?
         )
     )
 )
+
+type HasValidators<T extends DataDefintion> = ValueType<{
+    [K in keyof T as (
+        T[K] extends ExtendedFieldType
+        ? K
+        : (
+            T[K] extends DataDefintion
+            ? HasValidators<T[K]> extends true ? K : never
+            : never
+        )
+    )]: true
+}> extends never ? false : true
+
+type Validators<T extends FieldTypes> = T extends ExtendedFieldType
+? (value: InputDataTypes[T['type']]) => boolean
+: (
+    T extends DataDefintion
+    ? (
+        HasValidators<T> extends true
+        ? {
+            readonly [K in keyof T as (
+                T[K] extends ExtendedFieldType
+                ? K
+                : (
+                    T[K] extends DataDefintion
+                        ? HasValidators<T[K]> extends true ? K : never
+                        : never
+                )
+            )]: Validators<T[K]>
+        }
+        : never
+    )
+    : never
+)
+
 
 type ArrayTypeOutput<T extends ArrayFieldTypes> = (
     T extends 'int8' ? Int8Array
@@ -155,4 +188,27 @@ type EnumHasExtended<T extends EnumDefintion> = ValueType<{
     [key in keyof T]: T[key] extends FieldTypes ? HasExtended<T[key]> : never
 }>
 
-export type { IntTypes, InputDataTypes, OutputDataTypes, Definition, FieldTypes, ExtendedFieldType, DataDefintion, HasData, EnumDefintion, DefinedTypeInput, DefinedTypeOutput, EnumDefintionInternal, EnumFieldTypes, EnumTypeInput, EnumTypeOutput, HasExtended, EnumHasExtended, ArrayDefintionInternal, ArrayFieldTypes, BaseFieldTypes }
+export type {
+    IntTypes,
+    InputDataTypes,
+    OutputDataTypes,
+    Definition,
+    FieldTypes,
+    ExtendedFieldType,
+    Validators,
+    HasValidators,
+    DataDefintion,
+    HasData,
+    EnumDefintion,
+    DefinedTypeInput,
+    DefinedTypeOutput,
+    EnumDefintionInternal,
+    EnumFieldTypes,
+    EnumTypeInput,
+    EnumTypeOutput,
+    HasExtended,
+    EnumHasExtended,
+    ArrayDefintionInternal,
+    ArrayFieldTypes,
+    BaseFieldTypes
+}
